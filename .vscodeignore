@@ -19,6 +19,12 @@ tsconfig.json
 .gitattributes
 .gitignore
 
+# Community files (shown on GitHub, not needed in the extension)
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+SECURITY.md
+ACCESSIBILITY.md
+
 # Source maps (only useful while debugging)
 **/*.map
 

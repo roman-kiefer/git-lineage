@@ -1,0 +1,24 @@
+name: Feature request
+description: An idea for a new feature or an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: Describe the task or problem, not only the solution. What is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How could Git Lineage help? If another tool does this well, describe the behavior in your own words.
+  - type: dropdown
+    id: host
+    attributes:
+      label: Where would you use it?
+      options:
+        - VS Code extension
+        - Claude Code plugin
+        - Both

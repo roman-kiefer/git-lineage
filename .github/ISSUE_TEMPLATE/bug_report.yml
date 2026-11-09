@@ -1,0 +1,61 @@
+name: Bug report
+description: Something does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Security problems do not belong here: please use the [security policy](https://github.com/roman-kiefer/git-lineage/security/policy) instead.
+  - type: dropdown
+    id: host
+    attributes:
+      label: Where do you use Git Lineage?
+      options:
+        - VS Code extension
+        - Claude Code plugin
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Git Lineage version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, `git --version`, and the VS Code or Claude Code version.
+      placeholder: "Windows 11, git 2.47.1, VS Code 1.106"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a repository with ...
+        2. Right-click ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact text of any error message. Screenshots help, especially for graph layout problems.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: For example whether the repository uses worktrees, submodules, a very long history or unusual branch names.
