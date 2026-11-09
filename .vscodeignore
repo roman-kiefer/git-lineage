@@ -1,0 +1,36 @@
+# Files left out of the .vsix package. The package only needs the compiled extension
+# (out/**/*.js), the webview bundle (webview/dist/main.js, main.css), package.json,
+# README, CHANGELOG and LICENSE.
+
+# Sources, tests and tooling
+src/**
+test/**
+scripts/**
+webview/src/**
+webview/tsconfig.json
+media/icon.svg
+media/screenshot.png
+# media/tab-*.svg stay: they are the editor tab icon
+esbuild.config.ts
+vitest.config.mts
+tsconfig.json
+.vscode/**
+.github/**
+.gitattributes
+.gitignore
+
+# Source maps (only useful while debugging)
+**/*.map
+
+# Local data and build leftovers
+.tmp*
+*.log
+*.vsix
+node_modules/**
+
+# Local server for the Claude Code browser pane (not part of the extension)
+out/standalone/**
+webview/dist/standaloneBridge.*
+.claude-plugin/**
+claude-plugin/**
+docs/**

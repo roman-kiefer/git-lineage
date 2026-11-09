@@ -1,0 +1,48 @@
+# Build and test on every push and pull request; the .vsix is kept as a downloadable artifact.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Windows and Linux: path handling and git output differ between the two.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # Exact versions from package-lock.json.
+      - run: npm ci
+
+      # Type checks of extension, webview and tests (the project has no separate linter).
+      - run: npm run compile
+      - run: npm run webview:typecheck
+      - run: npm run test:typecheck
+
+      - run: npm test
+
+      # vsce runs vscode:prepublish (compile + webview bundle) before packaging.
+      # No runtime dependencies: --no-dependencies (set in the script) skips the npm list lookup.
+      - run: npm run package -- --out git-lineage.vsix
+
+      - uses: actions/upload-artifact@v7
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: git-lineage-vsix
+          path: git-lineage.vsix
+          if-no-files-found: error

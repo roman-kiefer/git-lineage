@@ -1,0 +1,21 @@
+{
+  "name": "git-lineage",
+  "description": "Git Lineage: the Git history as an interactive graph in the Claude Code browser pane.",
+  "owner": {
+    "name": "Roman Kiefer"
+  },
+  "plugins": [
+    {
+      "name": "git-lineage",
+      "source": "./claude-plugin",
+      "description": "Shows the Git history of the current repository as an interactive graph in the browser pane.",
+      "category": "development",
+      "tags": [
+        "git",
+        "graph",
+        "history",
+        "worktrees"
+      ]
+    }
+  ]
+}

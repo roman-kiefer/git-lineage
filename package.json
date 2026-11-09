@@ -1,0 +1,136 @@
+{
+    "name": "git-lineage",
+    "displayName": "Git Lineage",
+    "description": "Interactive Git graph of your history: branches, merges, worktrees, commit details and diffs, with Git actions such as checkout, merge, interactive rebase, cherry-pick, tags and stashes.",
+    "version": "0.1.0",
+    "preview": true,
+    "publisher": "roman-kiefer",
+    "license": "GPL-3.0-only",
+    "icon": "media/icon.png",
+    "galleryBanner": {
+        "color": "#1b1f27",
+        "theme": "dark"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/roman-kiefer/git-lineage.git"
+    },
+    "bugs": {
+        "url": "https://github.com/roman-kiefer/git-lineage/issues"
+    },
+    "homepage": "https://github.com/roman-kiefer/git-lineage#readme",
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "SCM Providers",
+        "Visualization"
+    ],
+    "keywords": [
+        "git",
+        "git graph",
+        "git history",
+        "git log",
+        "graph",
+        "history",
+        "log",
+        "branch",
+        "commit",
+        "worktree",
+        "rebase",
+        "stash",
+        "tag"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "gitLineage.open",
+                "title": "Open Git Lineage"
+            },
+            {
+                "command": "gitLineage.refresh",
+                "title": "Refresh Git Lineage"
+            }
+        ],
+        "configuration": {
+            "title": "Git Lineage",
+            "properties": {
+                "gitLineage.pageSize": {
+                    "type": "number",
+                    "default": 120,
+                    "minimum": 20,
+                    "maximum": 1000,
+                    "description": "Number of commits loaded per page."
+                },
+                "gitLineage.showRemoteBranches": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show remote branches when the view opens."
+                },
+                "gitLineage.autoRefresh": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Refresh the graph automatically when HEAD, refs or the index change (commit, checkout, fetch, staging) and when a file in the repository is saved."
+                },
+                "gitLineage.confirmDetachedCheckout": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Ask before checking out a commit or tag (detached HEAD). Turned off by \"Always accept\" in the dialog."
+                },
+                "gitLineage.gitTimeoutSeconds": {
+                    "type": "number",
+                    "default": 30,
+                    "minimum": 5,
+                    "description": "Timeout in seconds for a single git command."
+                },
+                "gitLineage.dateFormat": {
+                    "type": "string",
+                    "enum": [
+                        "short",
+                        "iso",
+                        "local",
+                        "relative"
+                    ],
+                    "enumDescriptions": [
+                        "Day, month and time in your time zone, e.g. 6 Nov 2026 13:41.",
+                        "Year-month-day and time in the author's time zone, e.g. 2026-09-30 18:20.",
+                        "Date and time in your locale and time zone.",
+                        "Time since the commit, e.g. 3 days ago."
+                    ],
+                    "default": "short",
+                    "description": "Format of the date column in the commit list."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "webview:typecheck": "tsc -p webview/tsconfig.json",
+        "esbuild": "tsx esbuild.config.ts",
+        "esbuild:watch": "tsx esbuild.config.ts --watch",
+        "plugin": "npm run esbuild && tsx scripts/build-plugin.ts",
+        "vscode:prepublish": "npm run compile && npm run esbuild",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:typecheck": "tsc -p test/tsconfig.json",
+        "fixtures": "bash scripts/make-fixtures.sh",
+        "check": "npm run compile && npm run webview:typecheck && npm run test:typecheck && npm test",
+        "package": "vsce package --no-dependencies",
+        "standalone": "npm run esbuild && tsx src/standalone/server.ts"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "@types/vscode": "^1.80.0",
+        "@vscode/vsce": "^4.1.0",
+        "esbuild": "^0.28.2",
+        "happy-dom": "^21.0.4",
+        "tsx": "^4.23.15",
+        "typescript": "^5.3.3",
+        "vitest": "^5.1.0"
+    }
+}

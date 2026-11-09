@@ -1,0 +1,7 @@
+<!-- Git Lineage icon (own design): a light "G" drawn as a lane on a dark square, starting and ending in a commit dot. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="26" fill="#1b1f27"/>
+  <path d="M92.3 35.7 A40 40 0 1 0 104 64 H72" stroke="#e6e8ec" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="92.3" cy="35.7" r="10" fill="#1ea8ff"/>
+  <circle cx="72" cy="64" r="10" fill="#ff2cc3"/>
+</svg>

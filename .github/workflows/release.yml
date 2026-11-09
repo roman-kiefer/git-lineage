@@ -1,0 +1,58 @@
+# Publish to the VS Code Marketplace when a version tag (v0.1.0, v0.2.0, ...) is pushed.
+# Authentication: Marketplace Trusted Publishing (OIDC), no stored token.
+# The publisher "roman-kiefer" needs a Trusted Publishing policy for this repository
+# and the workflow file release.yml (marketplace.visualstudio.com/manage -> Trusted Publishing).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # GitHub release with the .vsix
+      id-token: write   # OIDC token for Trusted Publishing
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The tag must match the version in package.json (tag v0.1.0 -> "version": "0.1.0").
+      - name: Check tag against package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+
+      # Same checks as CI: type checks of extension, webview and tests, then the tests.
+      - run: npm run check
+
+      # vsce runs vscode:prepublish (compile + webview bundle) before packaging.
+      - run: npm run package -- --out git-lineage-${GITHUB_REF_NAME}.vsix
+
+      # Kept as a download on the run, also when publishing fails (manual upload as fallback).
+      - uses: actions/upload-artifact@v7
+        with:
+          name: git-lineage-vsix
+          path: git-lineage-${{ github.ref_name }}.vsix
+          if-no-files-found: error
+
+      # Publishes exactly the file built above.
+      - run: npx vsce publish --oidc --packagePath git-lineage-${GITHUB_REF_NAME}.vsix
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" "git-lineage-${GITHUB_REF_NAME}.vsix" --title "${GITHUB_REF_NAME}" --notes "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CHANGELOG.md)."

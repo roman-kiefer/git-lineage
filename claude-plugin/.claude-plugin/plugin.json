@@ -1,0 +1,20 @@
+{
+  "name": "git-lineage",
+  "displayName": "Git Lineage",
+  "version": "0.1.0",
+  "description": "Shows the Git history of the current repository as an interactive graph in the Claude Code browser pane: branches, merges, worktrees, commit details, and Git actions.",
+  "author": {
+    "name": "Roman Kiefer"
+  },
+  "homepage": "https://github.com/roman-kiefer/git-lineage#readme",
+  "repository": "https://github.com/roman-kiefer/git-lineage",
+  "license": "GPL-3.0-only",
+  "keywords": [
+    "git",
+    "graph",
+    "history",
+    "branches",
+    "worktrees"
+  ],
+  "icon": "./server/icon.png"
+}

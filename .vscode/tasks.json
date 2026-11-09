@@ -1,0 +1,69 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "watch:extension",
+      "type": "npm",
+      "script": "watch",
+      "isBackground": true,
+      "problemMatcher": "$tsc-watch",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "watch"
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "reevaluateOnRerun": false
+      }
+    },
+    {
+      "label": "watch:webview",
+      "type": "npm",
+      "script": "esbuild:watch",
+      "isBackground": true,
+      "problemMatcher": [
+        {
+          "owner": "esbuild-watch",
+          "pattern": [
+            {
+              "regexp": "^\\s*(.+):(\\d+):(\\d+):\\s+(error):\\s+(.*)$",
+              "file": 1,
+              "line": 2,
+              "column": 3,
+              "severity": 4,
+              "message": 5
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^\\[esbuild-watch\\] started$",
+            "endsPattern": "^\\[esbuild-watch\\] ready$"
+          }
+        }
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "watch"
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "reevaluateOnRerun": false
+      }
+    },
+    {
+      "label": "watch:all",
+      "dependsOn": [
+        "watch:extension",
+        "watch:webview"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 1,
+        "reevaluateOnRerun": false
+      }
+    }
+  ]
+}

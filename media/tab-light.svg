@@ -1,0 +1,6 @@
+<!-- Git Lineage tab icon (light themes): the G of media/icon.svg without background. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 16 96 96" width="16" height="16">
+  <path d="M92.3 35.7 A40 40 0 1 0 104 64 H72" stroke="#1b1f27" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="92.3" cy="35.7" r="12" fill="#1ea8ff"/>
+  <circle cx="72" cy="64" r="12" fill="#ff2cc3"/>
+</svg>

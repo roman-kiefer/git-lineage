@@ -1,0 +1,164 @@
+/* webview/src/styles/standalone.css */
+:root {
+  color-scheme: dark;
+  --vscode-font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  --vscode-editor-font-family:
+    ui-monospace,
+    "Cascadia Mono",
+    Consolas,
+    Menlo,
+    monospace;
+  --vscode-foreground: #cccccc;
+  --vscode-editor-foreground: #d4d4d4;
+  --vscode-editor-background: #1e1f22;
+  --vscode-sideBar-background: #18191b;
+  --vscode-descriptionForeground: #9da1a6;
+  --vscode-errorForeground: #f48771;
+  --vscode-icon-foreground: #c5c5c5;
+  --vscode-textLink-foreground: #4daafc;
+  --vscode-focusBorder: #0078d4;
+  --vscode-widget-border: #3a3d41;
+  --vscode-widget-shadow: rgba(0, 0, 0, 0.45);
+  --vscode-editorWidget-background: #25262a;
+  --vscode-editorWidget-border: #3a3d41;
+  --vscode-input-background: #2a2b2f;
+  --vscode-input-foreground: #d4d4d4;
+  --vscode-input-border: #45484d;
+  --vscode-button-background: #0e639c;
+  --vscode-button-foreground: #ffffff;
+  --vscode-button-hoverBackground: #1177bb;
+  --vscode-button-secondaryBackground: #3a3d41;
+  --vscode-button-secondaryForeground: #e0e0e0;
+  --vscode-button-secondaryHoverBackground: #45484d;
+  --vscode-toolbar-hoverBackground: rgba(90, 93, 94, 0.31);
+  --vscode-list-hoverBackground: #2a2d2e;
+  --vscode-list-activeSelectionBackground: #04395e;
+  --vscode-list-activeSelectionForeground: #ffffff;
+  --vscode-menu-background: #25262a;
+  --vscode-menu-foreground: #cccccc;
+  --vscode-menu-border: #45484d;
+  --vscode-menu-selectionBackground: #0e639c;
+  --vscode-menu-selectionForeground: #ffffff;
+  --vscode-menu-separatorBackground: #45484d;
+  --vscode-editor-findMatchBackground: rgba(81, 92, 106, 0.8);
+  --vscode-editor-findMatchHighlightBackground: rgba(234, 92, 0, 0.33);
+  --vscode-editor-findMatchBorder: transparent;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --vscode-foreground: #3b3b3b;
+    --vscode-editor-foreground: #1f1f1f;
+    --vscode-editor-background: #ffffff;
+    --vscode-sideBar-background: #f6f6f7;
+    --vscode-descriptionForeground: #6b6f75;
+    --vscode-errorForeground: #c72e0f;
+    --vscode-icon-foreground: #424242;
+    --vscode-textLink-foreground: #005fb8;
+    --vscode-widget-border: #d5d7da;
+    --vscode-widget-shadow: rgba(0, 0, 0, 0.16);
+    --vscode-editorWidget-background: #f6f6f7;
+    --vscode-editorWidget-border: #d5d7da;
+    --vscode-input-background: #ffffff;
+    --vscode-input-foreground: #1f1f1f;
+    --vscode-input-border: #c8cacd;
+    --vscode-button-background: #005fb8;
+    --vscode-button-hoverBackground: #0258a8;
+    --vscode-button-secondaryBackground: #e5e6e8;
+    --vscode-button-secondaryForeground: #1f1f1f;
+    --vscode-button-secondaryHoverBackground: #d5d7da;
+    --vscode-toolbar-hoverBackground: rgba(184, 184, 184, 0.31);
+    --vscode-list-hoverBackground: #f0f1f2;
+    --vscode-list-activeSelectionBackground: #cfe4fa;
+    --vscode-list-activeSelectionForeground: #1f1f1f;
+    --vscode-menu-background: #ffffff;
+    --vscode-menu-foreground: #1f1f1f;
+    --vscode-menu-border: #d5d7da;
+    --vscode-menu-selectionBackground: #005fb8;
+    --vscode-menu-selectionForeground: #ffffff;
+    --vscode-menu-separatorBackground: #d5d7da;
+    --vscode-editor-findMatchBackground: rgba(168, 172, 148, 0.6);
+    --vscode-editor-findMatchHighlightBackground: rgba(234, 92, 0, 0.25);
+  }
+}
+body {
+  margin: 0;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+}
+.host-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  background: rgba(0, 0, 0, 0.35);
+}
+.host-dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 16px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-editorWidget-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px var(--vscode-widget-shadow);
+}
+.host-dialog__title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.host-dialog__detail {
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 10px;
+}
+.host-dialog__input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font: inherit;
+}
+.host-dialog__input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+.host-dialog__error {
+  margin-top: 6px;
+  color: var(--vscode-errorForeground);
+}
+.host-dialog__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.host-dialog__button {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 3px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  font: inherit;
+  cursor: pointer;
+}
+.host-dialog__button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+.host-dialog__button--primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+.host-dialog__button--primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+/*# sourceMappingURL=standaloneBridge.css.map */
