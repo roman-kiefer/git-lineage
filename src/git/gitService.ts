@@ -424,7 +424,7 @@ export class GitService {
   // Commit a branch points to on a remote, asked live (network). undefined = not there;
   // throws when the remote cannot be reached.
   async remoteBranchCommit(remote: string, branch: string): Promise<string | undefined> {
-    const output = await this.execGit(['ls-remote', remote, `refs/heads/${branch}`], await this.requireRepoRoot());
+    const output = await this.execGit(['ls-remote', '--', remote, `refs/heads/${branch}`], await this.requireRepoRoot());
     const line = output.split('\n').find((entry) => entry.trim().endsWith(`\trefs/heads/${branch}`));
     return line?.split('\t')[0]?.trim() || undefined;
   }
@@ -510,7 +510,7 @@ export class GitService {
   async remoteTagCommit(remote: string, name: string): Promise<string | undefined> {
     const ref = `refs/tags/${name}`;
     // With "<ref>^{}" the remote also lists the commit behind an annotated tag ("peeled").
-    const output = await this.execGit(['ls-remote', remote, ref, `${ref}^{}`], await this.requireRepoRoot());
+    const output = await this.execGit(['ls-remote', '--', remote, ref, `${ref}^{}`], await this.requireRepoRoot());
     const entries = new Map(
       output
         .split('\n')
