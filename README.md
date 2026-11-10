@@ -18,7 +18,7 @@ Independently developed, licensed under GPL-3.0-only. No telemetry. The only net
 /plugin install git-lineage@git-lineage
 ```
 
-Then ask Claude to show the git graph, or run `/git-lineage:git-graph`. Claude starts a small local server for the current repository and opens it in the browser pane. Requires Node.js 18 or later. Details: [Git Lineage in Claude Code](docs/claude-code.md).
+Then ask Claude to show the git graph, or run `/git-lineage:lineage-start`. Claude starts a small local server for the current repository and opens it in the browser pane. `/git-lineage:lineage-stop` closes the graph and stops the server; `/git-lineage:lineage-open-vscode` opens the current folder in VS Code. Requires Node.js 18 or later. Details: [Git Lineage in Claude Code](docs/claude-code.md).
 
 ## Features
 

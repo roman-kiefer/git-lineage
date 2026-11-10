@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ver
 ### Added
 
 - Browser pane (Claude Code plugin): Diff and Open in the commit details now work there too, in a read-only view in the page (changed lines with context, or the whole file).
+- Claude Code plugin: `/git-lineage:lineage-stop` closes the graph's tab in the browser pane and stops its server; `/git-lineage:lineage-open-vscode` opens the session's current folder in VS Code.
+
+### Changed
+
+- Claude Code plugin: `/git-lineage:git-graph` is now `/git-lineage:lineage-start`. Running it again for the same repository reopens the graph instead of starting a second server.
 
 ### Fixed
 

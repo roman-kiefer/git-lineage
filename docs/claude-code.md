@@ -16,12 +16,28 @@ Requires Node.js 18 or later on your computer (`node` on the PATH). Nothing else
 Ask Claude to show the git graph (for example "show me the git graph"), or run:
 
 ```
-/git-lineage:git-graph [folder or name]
+/git-lineage:lineage-start [folder or name]
 ```
 
-Claude starts the server for the current folder (or the folder you name: a path, or the name of a repository folder below the current one, as in `/git-lineage:git-graph my-api`) and opens it in the browser pane. If the folder holds several repositories, Claude asks which one. The server shows the repository of that folder; in a worktree it shows that worktree, with all other worktrees of the repository in the toolbar.
+Claude starts the server for the current folder (or the folder you name: a path, or the name of a repository folder below the current one, as in `/git-lineage:lineage-start my-api`) and opens it in the browser pane. If the folder holds several repositories, Claude asks which one. The server shows the repository of that folder; in a worktree it shows that worktree, with all other worktrees of the repository in the toolbar.
 
-The server runs in the background until the session ends or you ask Claude to stop it. Several repositories or worktrees can be open at the same time; each gets its own server and port.
+Running it again for the same repository opens the graph again instead of starting a second server. Several repositories or worktrees can be open at the same time; each gets its own server and port.
+
+## Close the graph
+
+```
+/git-lineage:lineage-stop [folder or name]
+```
+
+Claude closes the graph's tab in the browser pane and stops the server. Without a folder or name it stops all servers this session started; with one, only the server for that repository. Otherwise the server runs in the background until the session ends.
+
+## Open the folder in VS Code
+
+```
+/git-lineage:lineage-open-vscode
+```
+
+Claude opens the current working directory of the session (the repository or worktree it is working in) in VS Code, with `code "<folder>"`. This needs the `code` command on the PATH, but not the server.
 
 ### Settings
 
