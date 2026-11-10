@@ -1351,10 +1351,14 @@ ${tip}` : tip;
         0,
         routeColumnByParentIndex.get(startIndex) ?? commits[startIndex]?.lane ?? laneId
       );
-      currentVisualLaneByLaneId.set(
-        laneId,
-        resolveInitialVisualLaneAtRow(startIndex, laneId, preferredVisualLane)
-      );
+      let initialVisualLane = resolveInitialVisualLaneAtRow(startIndex, laneId, preferredVisualLane);
+      if (isPlacedLast(startIndex)) {
+        const headHash = commits[startIndex]?.parents?.[0];
+        const headIndex = headHash ? indexByHash.get(headHash) : void 0;
+        const lastRow = headIndex !== void 0 && headIndex > startIndex ? headIndex - 1 : rows.length - 1;
+        initialVisualLane = findFreeMergeColumn(laneId, initialVisualLane, startIndex, lastRow);
+      }
+      currentVisualLaneByLaneId.set(laneId, initialVisualLane);
       let currentIndex = startIndex;
       while (currentIndex !== void 0) {
         if (!ownerLaneByCommitIndex.has(currentIndex)) {

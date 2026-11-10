@@ -596,10 +596,17 @@ export const computeGraphLayout = (
       0,
       routeColumnByParentIndex.get(startIndex) ?? commits[startIndex]?.lane ?? laneId,
     );
-    currentVisualLaneByLaneId.set(
-      laneId,
-      resolveInitialVisualLaneAtRow(startIndex, laneId, preferredVisualLane),
-    );
+    let initialVisualLane = resolveInitialVisualLaneAtRow(startIndex, laneId, preferredVisualLane);
+    if (isPlacedLast(startIndex)) {
+      // The pseudo row starts after all real lanes: its line down to HEAD must not run through
+      // commits of other lanes in between (e.g. main one row above HEAD), so take a column that
+      // stays free down to the row above HEAD and bend into HEAD there.
+      const headHash = commits[startIndex]?.parents?.[0];
+      const headIndex = headHash ? indexByHash.get(headHash) : undefined;
+      const lastRow = headIndex !== undefined && headIndex > startIndex ? headIndex - 1 : rows.length - 1;
+      initialVisualLane = findFreeMergeColumn(laneId, initialVisualLane, startIndex, lastRow);
+    }
+    currentVisualLaneByLaneId.set(laneId, initialVisualLane);
 
     let currentIndex: number | undefined = startIndex;
     while (currentIndex !== undefined) {

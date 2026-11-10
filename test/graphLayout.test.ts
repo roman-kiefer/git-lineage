@@ -391,6 +391,23 @@ describe('Uncommitted Changes (pseudo row with parent HEAD)', () => {
     expect(findCollisions(result)).toEqual([]);
   });
 
+  it('HEAD below a newer commit on the same line (main ahead of HEAD): the pseudo row branches off into HEAD', () => {
+    // T (main) is a child of HEAD (H) and sits between the pseudo row and HEAD.
+    const history = [commit('U', ['H'], 0, true), commit('T', ['H'], 0), commit('H', ['A'], 0), commit('A', [], 0)];
+    const result = layoutOf(history);
+    expect(columnsBySubject(history, result)).toEqual({ U: 1, T: 0, H: 0, A: 0 });
+    realColumnsUnchanged(history, result);
+    expect(findCollisions(result)).toEqual([]);
+    // The pseudo row's line bends from its column into HEAD's commit point.
+    const laneId = result.ownerLaneByCommitIndex.get(0);
+    expect(
+      result.primitives.some(
+        (primitive) =>
+          primitive.kind === 'branch' && primitive.laneId === laneId && primitive.fromLane === 1 && primitive.toLane === 0,
+      ),
+    ).toBe(true);
+  });
+
   it.each(fixtureNames)('%s: the pseudo row above HEAD (top commit) does not change the columns', (name) => {
     const real = loadCommitViews(name);
     const history = [commit('U', [real[0].hash], real[0].lane, true), ...real];
