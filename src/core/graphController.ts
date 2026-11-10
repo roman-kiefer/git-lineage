@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { GitError, GitService, type BranchTracking, type StashEntry, type TagDetails } from '../git/gitService';
+import { withLineCounts } from '../git/gitParser';
 import type { CommitFileChange, CommitSummary, Ref } from '../git/gitTypes';
 import { branchNameProblem, localNameForRemote } from '../git/refNames';
 import {
@@ -1739,7 +1740,12 @@ export class GraphController {
     if (hash === UNCOMMITTED_HASH || hash.startsWith(OTHER_WORKTREE_PREFIX)) {
       // Changed files of the working tree; Diff compares HEAD with the file on disk.
       const other = hash === UNCOMMITTED_HASH ? undefined : this.worktreeByPath(hash.slice(OTHER_WORKTREE_PREFIX.length));
-      const files = hash === UNCOMMITTED_HASH ? this.workingTreeChanges : other?.changes ?? [];
+      const changes = hash === UNCOMMITTED_HASH ? this.workingTreeChanges : other?.changes ?? [];
+      const folder = other ? other.path : await this.gitService.getRepoRoot();
+      const files =
+        folder && changes.length > 0
+          ? withLineCounts(changes, await this.gitService.getWorkingTreeNumstat(folder))
+          : changes;
       await this.host.post({
         type: 'commitDetails',
         payload: {

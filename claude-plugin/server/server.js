@@ -76,6 +76,31 @@ function parsePorcelainStatus(raw) {
   }
   return changes;
 }
+function parseNumstat(raw) {
+  const entries = raw.split("\0");
+  const counts = /* @__PURE__ */ new Map();
+  for (let index = 0; index < entries.length; index += 1) {
+    const match = /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(entries[index].replace(/^\n+/, ""));
+    if (!match) {
+      continue;
+    }
+    let path7 = match[3];
+    if (path7 === "") {
+      path7 = entries[index + 2] ?? "";
+      index += 2;
+    }
+    if (path7 && match[1] !== "-" && match[2] !== "-") {
+      counts.set(path7, { additions: Number(match[1]), deletions: Number(match[2]) });
+    }
+  }
+  return counts;
+}
+function withLineCounts(files, counts) {
+  return files.map((file) => {
+    const count = counts.get(file.path);
+    return count ? { ...file, ...count } : file;
+  });
+}
 var FIELD_SEPARATOR = "";
 var COMMIT_START = "";
 var COMMIT_END = "";
@@ -466,11 +491,13 @@ var GitService = class {
     const [fullHash, shortHash, authorName, authorEmail, authorDate, subject, body = ""] = headerFields;
     const files = filePart.split("\n").map((line) => line.trim()).filter((line) => line.length > 0).map((line) => {
       const [status, ...pathParts] = line.split("	");
+      const renamed = /^[RC]/.test(status) && pathParts.length === 2;
       return {
         status,
-        path: pathParts.join("	")
+        path: renamed ? pathParts[1] : pathParts.join("	")
       };
     });
+    const numstat = await this.execGit(["show", "--numstat", "-z", "--format=", hash], repoRoot).catch(() => "");
     return {
       hash: fullHash,
       shortHash,
@@ -479,8 +506,17 @@ var GitService = class {
       authorDate,
       subject,
       body,
-      files
+      files: withLineCounts(files, parseNumstat(numstat))
     };
+  }
+  // Added/removed lines of the working tree and index against HEAD in one worktree folder.
+  // Untracked files are not included; empty without HEAD or on errors.
+  async getWorkingTreeNumstat(folder) {
+    try {
+      return parseNumstat(await this.execGit(["diff", "--numstat", "-z", "HEAD", "--"], folder));
+    } catch {
+      return /* @__PURE__ */ new Map();
+    }
   }
   // Changed files in the working tree and index (staged, unstaged, untracked), for the
   // "Uncommitted Changes" row. Empty when there is no repository or nothing changed.
@@ -2499,7 +2535,9 @@ var GraphController = class {
     }
     if (hash === UNCOMMITTED_HASH || hash.startsWith(OTHER_WORKTREE_PREFIX)) {
       const other = hash === UNCOMMITTED_HASH ? void 0 : this.worktreeByPath(hash.slice(OTHER_WORKTREE_PREFIX.length));
-      const files = hash === UNCOMMITTED_HASH ? this.workingTreeChanges : other?.changes ?? [];
+      const changes = hash === UNCOMMITTED_HASH ? this.workingTreeChanges : other?.changes ?? [];
+      const folder = other ? other.path : await this.gitService.getRepoRoot();
+      const files = folder && changes.length > 0 ? withLineCounts(changes, await this.gitService.getWorkingTreeNumstat(folder)) : changes;
       await this.host.post({
         type: "commitDetails",
         payload: {

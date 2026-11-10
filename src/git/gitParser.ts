@@ -1,4 +1,4 @@
-import type { CommitFileChange, CommitSummary } from './gitTypes';
+import type { CommitFileChange, CommitSummary, LineCounts } from './gitTypes';
 
 // Parse `git status --porcelain=v1 -z` into one entry per changed path.
 // Entry: "XY path" (X = index, Y = working tree); renames/copies are followed by the old path.
@@ -30,6 +30,38 @@ export function parsePorcelainStatus(raw: string): CommitFileChange[] {
     changes.push({ status, path });
   }
   return changes;
+}
+
+// Parse `git show/diff --numstat -z` into line counts per (new) path.
+// Entry: "add<TAB>del<TAB>path"; for renames/copies "add<TAB>del<TAB>" followed by the old and the
+// new path as their own entries. Binary files ("-" instead of numbers) are left out.
+export function parseNumstat(raw: string): Map<string, LineCounts> {
+  const entries = raw.split('\0');
+  const counts = new Map<string, LineCounts>();
+  for (let index = 0; index < entries.length; index += 1) {
+    // `git show --format=` may put a newline in front of the first entry.
+    const match = /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(entries[index].replace(/^\n+/, ''));
+    if (!match) {
+      continue;
+    }
+    let path = match[3];
+    if (path === '') {
+      path = entries[index + 2] ?? '';
+      index += 2;
+    }
+    if (path && match[1] !== '-' && match[2] !== '-') {
+      counts.set(path, { additions: Number(match[1]), deletions: Number(match[2]) });
+    }
+  }
+  return counts;
+}
+
+// Line counts from parseNumstat added to the files with the same path.
+export function withLineCounts(files: CommitFileChange[], counts: Map<string, LineCounts>): CommitFileChange[] {
+  return files.map((file) => {
+    const count = counts.get(file.path);
+    return count ? { ...file, ...count } : file;
+  });
 }
 
 const FIELD_SEPARATOR = '\u001f';

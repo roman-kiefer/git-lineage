@@ -681,12 +681,92 @@ body.vscode-high-contrast .ref-chip__icon {
   margin-bottom: 4px;
 }
 
-.file-label {
-  flex: 1;
+/* File row: status letter, name (opens the diff), line counts, open icon. */
+.file-status {
+  flex: none;
+  width: 1ch;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-weight: 600;
+}
+
+.file-name {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-name:hover {
+  text-decoration: underline;
+}
+
+.file-name:focus-visible,
+.file-open:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.file-added {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+}
+
+.file-modified {
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+}
+
+.file-deleted {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #e57373);
+}
+
+.file-renamed {
+  color: var(--vscode-gitDecoration-renamedResourceForeground, #73c991);
+}
+
+.file-untracked {
+  color: var(--vscode-gitDecoration-untrackedResourceForeground, #73c991);
+}
+
+.file-other {
+  color: var(--vscode-foreground);
+}
+
+.file-name.file-deleted {
+  text-decoration: line-through;
+}
+
+.file-stats {
+  flex: none;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+.file-removed {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #e57373);
+}
+
+.file-open {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.file-open:hover {
+  color: var(--vscode-foreground);
+  background: var(--vscode-list-hoverBackground);
 }
 
 .file-action {

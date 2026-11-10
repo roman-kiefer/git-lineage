@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFile } from 'child_process';
-import { parseGitLog, parsePorcelainStatus } from './gitParser';
-import type { CommitDetails, CommitFileChange, CommitSummary } from './gitTypes';
+import { parseGitLog, parseNumstat, parsePorcelainStatus, withLineCounts } from './gitParser';
+import type { CommitDetails, CommitFileChange, CommitSummary, LineCounts } from './gitTypes';
 import { GitError, toGitError } from './gitErrors';
 import { parseWorktreeList, samePath, type WorktreeInfo } from './worktrees';
 import {
@@ -256,11 +256,14 @@ export class GitService {
       .filter((line) => line.length > 0)
       .map((line) => {
         const [status, ...pathParts] = line.split('\t');
+        // Renames/copies ("R100<TAB>old<TAB>new") are listed under their new path.
+        const renamed = /^[RC]/.test(status) && pathParts.length === 2;
         return {
           status,
-          path: pathParts.join('\t'),
+          path: renamed ? pathParts[1] : pathParts.join('\t'),
         };
       });
+    const numstat = await this.execGit(['show', '--numstat', '-z', '--format=', hash], repoRoot).catch(() => '');
 
     return {
       hash: fullHash,
@@ -270,8 +273,18 @@ export class GitService {
       authorDate,
       subject,
       body,
-      files,
+      files: withLineCounts(files, parseNumstat(numstat)),
     };
+  }
+
+  // Added/removed lines of the working tree and index against HEAD in one worktree folder.
+  // Untracked files are not included; empty without HEAD or on errors.
+  async getWorkingTreeNumstat(folder: string): Promise<Map<string, LineCounts>> {
+    try {
+      return parseNumstat(await this.execGit(['diff', '--numstat', '-z', 'HEAD', '--'], folder));
+    } catch {
+      return new Map();
+    }
   }
 
   // Changed files in the working tree and index (staged, unstaged, untracked), for the

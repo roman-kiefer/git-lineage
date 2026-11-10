@@ -1,4 +1,4 @@
-export type CommitFileView = { status: string; path: string };
+export type CommitFileView = { status: string; path: string; additions?: number; deletions?: number };
 
 export type CommitDetailsView = {
   hash: string;
@@ -38,6 +38,42 @@ const getDetailElements = (): DetailElements | undefined => {
   return { subject, meta, summary, body, files };
 };
 
+type StatusKind = 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked' | 'other';
+
+const statusKind = (status: string): StatusKind => {
+  switch (status.charAt(0)) {
+    case 'A':
+      return 'added';
+    case 'M':
+    case 'T':
+      return 'modified';
+    case 'D':
+      return 'deleted';
+    case 'R':
+    case 'C':
+      return 'renamed';
+    case 'U':
+      return 'untracked';
+    default:
+      return 'other';
+  }
+};
+
+const STATUS_TITLES: Record<StatusKind, string> = {
+  added: 'Added',
+  modified: 'Modified',
+  deleted: 'Deleted',
+  renamed: 'Renamed or copied',
+  untracked: 'Untracked',
+  other: 'Changed',
+};
+
+// Arrow leaving a box ("open elsewhere"), drawn in the text color.
+const OPEN_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M9 2.5h4.5V7"/><path d="M13.5 2.5 7.5 8.5"/><path d="M12 9.5v3a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3"/></svg>';
+
 const renderDetailFiles = (container: HTMLElement, files: CommitFileView[]): void => {
   if (files.length === 0) {
     container.textContent = 'No files changed.';
@@ -49,23 +85,51 @@ const renderDetailFiles = (container: HTMLElement, files: CommitFileView[]): voi
   list.className = 'file-list';
   files.forEach((file) => {
     const item = document.createElement('li');
-    const label = document.createElement('span');
-    label.className = 'file-label';
-    label.textContent = `${file.status} ${file.path}`;
+    const kind = statusKind(file.status);
 
-    const diffAction = document.createElement('button');
-    diffAction.className = 'file-action';
-    diffAction.type = 'button';
-    diffAction.dataset.path = file.path;
-    diffAction.textContent = 'Diff';
+    const status = document.createElement('span');
+    status.className = `file-status file-${kind}`;
+    status.textContent = file.status.charAt(0);
+    status.title = STATUS_TITLES[kind];
 
-    const openAction = document.createElement('button');
-    openAction.className = 'file-action secondary';
-    openAction.type = 'button';
-    openAction.dataset.path = file.path;
-    openAction.textContent = 'Open';
+    // The file name opens the diff.
+    const name = document.createElement('button');
+    name.className = `file-name file-${kind}`;
+    name.type = 'button';
+    name.dataset.action = 'diff';
+    name.dataset.path = file.path;
+    name.title = `Show Diff of ${file.path}`;
+    name.textContent = file.path;
 
-    item.append(label, diffAction, openAction);
+    item.append(status, name);
+
+    if (file.additions !== undefined && file.deletions !== undefined) {
+      const stats = document.createElement('span');
+      stats.className = 'file-stats';
+      stats.title = `${file.additions} lines added, ${file.deletions} lines removed`;
+      const added = document.createElement('span');
+      added.className = 'file-added';
+      added.textContent = `+${file.additions}`;
+      const removed = document.createElement('span');
+      removed.className = 'file-removed';
+      removed.textContent = `-${file.deletions}`;
+      stats.append('(', added, ' | ', removed, ')');
+      item.appendChild(stats);
+    }
+
+    // A deleted file has nothing left to open.
+    if (kind !== 'deleted') {
+      const open = document.createElement('button');
+      open.className = 'file-open';
+      open.type = 'button';
+      open.dataset.action = 'open';
+      open.dataset.path = file.path;
+      open.title = 'Open File';
+      open.setAttribute('aria-label', `Open ${file.path}`);
+      open.innerHTML = OPEN_ICON;
+      item.appendChild(open);
+    }
+
     list.appendChild(item);
   });
   container.appendChild(list);
@@ -127,7 +191,7 @@ export const bindCommitDetailFileActions = (handlers: DetailHandlers): void => {
 
   filesElement.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null;
-    const button = target?.closest<HTMLButtonElement>('.file-action');
+    const button = target?.closest<HTMLButtonElement>('button[data-action]');
     const hash = handlers.getSelectedHash();
     if (!button || !hash) {
       return;
@@ -138,7 +202,7 @@ export const bindCommitDetailFileActions = (handlers: DetailHandlers): void => {
       return;
     }
 
-    if (button.textContent === 'Open') {
+    if (button.dataset.action === 'open') {
       handlers.onOpenFile(hash, path);
     } else {
       handlers.onOpenDiff(hash, path);

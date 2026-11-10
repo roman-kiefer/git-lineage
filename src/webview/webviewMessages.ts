@@ -289,7 +289,7 @@ export type WebviewCommitDetails = {
   authorDate: string;
   subject: string;
   body: string;
-  files: { status: string; path: string }[];
+  files: { status: string; path: string; additions?: number; deletions?: number }[];
 };
 
 export type WebviewMessage =

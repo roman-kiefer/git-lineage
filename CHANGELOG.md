@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ver
 
 ### Changed
 
+- Changed files in the commit details: a click on the file name shows the Diff, the icon next to it opens the file (deleted files have none). Each file shows its added and removed lines, e.g. `(+13 | -9)`, also for uncommitted changes; the name is colored by its status. Renamed files are listed under their new name.
 - The checked-out branch is easier to spot: its chip shows the name larger and in bold (on a detached HEAD, the HEAD chip).
 
 ## [0.1.1] - 2026-11-10

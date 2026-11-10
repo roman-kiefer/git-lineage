@@ -50,7 +50,12 @@ export type CommitSummary = {
 export type CommitFileChange = {
   status: string;
   path: string;
+  // Added and removed lines (git --numstat); missing for binary files or when unknown.
+  additions?: number;
+  deletions?: number;
 };
+
+export type LineCounts = { additions: number; deletions: number };
 
 export type CommitDetails = {
   hash: string;
