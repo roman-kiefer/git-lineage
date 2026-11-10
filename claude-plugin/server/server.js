@@ -876,6 +876,18 @@ var GitService = class {
     }
     return repoRoot;
   }
+  // Content of a file (path relative to repoRoot, forward slashes) at a commit; empty when
+  // the file does not exist there (added or deleted in the compared commit, or a root commit).
+  async fileAtRef(repoRoot, ref, filePath) {
+    if (ref.startsWith("-")) {
+      throw new GitError(`Invalid ref: ${ref}`);
+    }
+    try {
+      return await this.execGit(["show", `${ref}:${filePath}`], repoRoot);
+    } catch {
+      return "";
+    }
+  }
   // Run git with a timeout; failures are mapped to a readable GitError.
   execGit(args, cwd, extraEnv = {}) {
     const timeoutMs = this.getTimeoutMs();
@@ -2528,9 +2540,11 @@ var GraphController = class {
     if (!folder) {
       return;
     }
-    const ref = uncommitted ? "HEAD" : hash;
-    const title = uncommitted ? `${filePath} (Working Tree)` : `${filePath} (${hash.slice(0, 7)})`;
-    await this.host.openDiff(folder, filePath, ref, title);
+    if (uncommitted) {
+      await this.host.openDiff(folder, filePath, "HEAD", void 0, `${filePath} (Working Tree)`);
+      return;
+    }
+    await this.host.openDiff(folder, filePath, `${hash}~1`, hash, `${filePath} (${hash.slice(0, 7)})`);
   }
   async handleOpenFile(hash, filePath) {
     const { folder, uncommitted } = await this.folderForHash(hash);
