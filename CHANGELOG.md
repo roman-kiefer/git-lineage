@@ -3,6 +3,12 @@
 All notable changes to Git Lineage are listed here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The checked-out branch is easier to spot: its chip shows the name larger and in bold (on a detached HEAD, the HEAD chip).
+
 ## [0.1.1] - 2026-11-10
 
 ### Security

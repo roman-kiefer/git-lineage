@@ -566,8 +566,12 @@ body.vscode-high-contrast .ref-chip__icon {
 .ref-chip--stash {
 }
 
-.ref-chip--current {
-  font-weight: 600;
+/* Checked-out branch: larger, bold label (the other chips use 10px, normal weight).
+   Detached HEAD (no current branch on the row): the HEAD chip is marked instead. */
+.ref-chip--current:not(.ref-chip--head) .ref-chip__segment--label,
+.ref-list:not(:has(.ref-chip--current:not(.ref-chip--head))) .ref-chip--head .ref-chip__segment--label {
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .commit.selected .commit-col {
