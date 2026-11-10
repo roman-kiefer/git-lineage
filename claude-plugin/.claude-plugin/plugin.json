@@ -1,7 +1,7 @@
 {
   "name": "git-lineage",
   "displayName": "Git Lineage",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shows the Git history of the current repository as an interactive graph in the Claude Code browser pane: branches, merges, worktrees, commit details, and Git actions.",
   "author": {
     "name": "Roman Kiefer"

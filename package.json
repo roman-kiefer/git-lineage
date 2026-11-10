@@ -2,7 +2,7 @@
     "name": "git-lineage",
     "displayName": "Git Lineage",
     "description": "Interactive Git graph of your history: branches, merges, worktrees, commit details and diffs, with Git actions such as checkout, merge, interactive rebase, cherry-pick, tags and stashes.",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "preview": true,
     "publisher": "roman-kiefer",
     "license": "GPL-3.0-only",

@@ -3,7 +3,7 @@
 All notable changes to Git Lineage are listed here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.2] - 2026-11-10
 
 ### Added
 
@@ -13,16 +13,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ver
 ### Changed
 
 - Claude Code plugin: `/git-lineage:git-graph` is now `/git-lineage:lineage-start`. Running it again for the same repository reopens the graph instead of starting a second server.
+- Changed files in the commit details: a click on the file name shows the Diff, the icon next to it opens the file (deleted files have none). Each file shows its added and removed lines, e.g. `(+13 | -9)`, also for uncommitted changes; the name is colored by its status. Renamed files are listed under their new name.
+- The checked-out branch is easier to spot: its chip shows the name larger and in bold (on a detached HEAD, the HEAD chip).
 
 ### Fixed
 
 - VS Code: Diff and Open in the commit details failed with "The editor could not be opened" (on Windows, and for repositories VS Code's Git extension had not opened). The file contents now come from `git show`.
 - Diff on a commit now shows that commit's changes (first parent against the commit) instead of comparing the commit with the working tree.
-
-### Changed
-
-- Changed files in the commit details: a click on the file name shows the Diff, the icon next to it opens the file (deleted files have none). Each file shows its added and removed lines, e.g. `(+13 | -9)`, also for uncommitted changes; the name is colored by its status. Renamed files are listed under their new name.
-- The checked-out branch is easier to spot: its chip shows the name larger and in bold (on a detached HEAD, the HEAD chip).
 
 ## [0.1.1] - 2026-11-10
 
