@@ -5,7 +5,8 @@ import type { ConfirmOptions, Disposable, GraphHost, PromptOptions, WatchCallbac
 
 // Host for the Claude Code browser pane (or any browser on this machine): messages go to the
 // page over Server-Sent Events, questions are shown as dialogs in the page by the bridge
-// (webview/src/standaloneBridge.ts). Diff, file and terminal need VS Code and only report that.
+// (webview/src/standaloneBridge.ts). Diff and Open send the file contents to the page, which
+// shows them itself (webview/src/graph/fileViewer.ts). Terminal and new windows need VS Code.
 
 // Settings (same keys and defaults as the extension's gitLineage.* settings).
 export const DEFAULT_SETTINGS: Record<string, unknown> = {
@@ -24,6 +25,26 @@ type HostRequest =
   | { kind: 'prompt'; title: string; prompt: string; value?: string; error?: string }
   | { kind: 'copy'; text: string };
 
+// Reads a file at a commit (empty when it does not exist there); GitService.fileAtRef.
+export type FileAtRef = (repoRoot: string, ref: string, filePath: string) => Promise<string>;
+
+// Larger files are not sent to the page.
+export const MAX_VIEW_BYTES = 2 * 1024 * 1024;
+
+// One side of a diff, or the file of Open, as sent to the page.
+export type FileViewSide = { label: string; text: string };
+
+export type FileViewPayload = {
+  mode: 'diff' | 'file';
+  path: string;
+  title: string;
+  // diff: old and new side; file: only right.
+  left?: FileViewSide;
+  right: FileViewSide;
+  // Shown instead of the content (binary or too large).
+  notice?: string;
+};
+
 export class StandaloneHost implements GraphHost {
   private readonly clients = new Set<ServerResponse>();
   private readonly pending = new Map<number, (value: string | undefined) => void>();
@@ -32,7 +53,10 @@ export class StandaloneHost implements GraphHost {
   onFirstClient: () => void = () => undefined;
   onNoClients: () => void = () => undefined;
 
-  constructor(private readonly settings: Record<string, unknown> = DEFAULT_SETTINGS) {}
+  constructor(
+    private readonly settings: Record<string, unknown> = DEFAULT_SETTINGS,
+    private readonly fileAtRef: FileAtRef = async () => '',
+  ) {}
 
   // --- connection handling (used by the server) ---
 
@@ -112,12 +136,17 @@ export class StandaloneHost implements GraphHost {
     await this.request({ kind: 'copy', text });
   }
 
-  async openDiff(): Promise<void> {
-    await this.onlyInVsCode('Diff');
+  async openDiff(repoRoot: string, filePath: string, leftRef: string, rightRef: string | undefined, title: string): Promise<void> {
+    const [left, right] = await Promise.all([
+      this.readSide(repoRoot, filePath, leftRef),
+      this.readSide(repoRoot, filePath, rightRef),
+    ]);
+    await this.showFileView({ mode: 'diff', path: filePath, title, left, right });
   }
 
-  async openFile(): Promise<void> {
-    await this.onlyInVsCode('Opening files');
+  async openFile(repoRoot: string, filePath: string, ref: string | undefined): Promise<void> {
+    const right = await this.readSide(repoRoot, filePath, ref);
+    await this.showFileView({ mode: 'file', path: filePath, title: `${filePath} (${right.label})`, right });
   }
 
   async openTerminal(): Promise<void> {
@@ -156,6 +185,26 @@ export class StandaloneHost implements GraphHost {
     };
   }
 
+  // A file at a commit, or on disk without ref. Missing files read as empty.
+  private async readSide(repoRoot: string, filePath: string, ref: string | undefined): Promise<FileViewSide> {
+    if (ref) {
+      // Full hashes shortened like in the graph (also "<hash>~1").
+      const label = ref.replace(/^([0-9a-f]{7})[0-9a-f]{33}/i, '$1');
+      return { label, text: await this.fileAtRef(repoRoot, ref, filePath) };
+    }
+    return { label: 'Working Tree', text: await readWorkingTreeFile(repoRoot, filePath) };
+  }
+
+  private async showFileView(payload: FileViewPayload): Promise<void> {
+    const sides = [payload.left, payload.right].filter((side): side is FileViewSide => side !== undefined);
+    if (sides.some((side) => Buffer.byteLength(side.text, 'utf8') > MAX_VIEW_BYTES)) {
+      payload = { ...payload, left: payload.left && { ...payload.left, text: '' }, right: { ...payload.right, text: '' }, notice: `The file is larger than ${MAX_VIEW_BYTES / 1024 / 1024} MB and is not shown here.` };
+    } else if (sides.some((side) => isBinary(side.text))) {
+      payload = { ...payload, left: payload.left && { ...payload.left, text: '' }, right: { ...payload.right, text: '' }, notice: 'Binary file, not shown.' };
+    }
+    await this.post({ type: 'showFileView', payload });
+  }
+
   private async onlyInVsCode(feature: string): Promise<void> {
     await this.post({ type: 'status', payload: { message: `${feature} is only available in VS Code.` } });
   }
@@ -173,3 +222,21 @@ export class StandaloneHost implements GraphHost {
     });
   }
 }
+
+// A file of the working tree; only inside repoRoot (the path comes from the page). Missing: empty.
+export const readWorkingTreeFile = async (repoRoot: string, filePath: string): Promise<string> => {
+  const root = path.resolve(repoRoot);
+  const target = path.resolve(root, filePath);
+  const relative = path.relative(root, target);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return '';
+  }
+  try {
+    return await fs.promises.readFile(target, 'utf8');
+  } catch {
+    return '';
+  }
+};
+
+// Like git: a NUL byte near the start means binary.
+export const isBinary = (text: string): boolean => text.slice(0, 8000).includes(String.fromCharCode(0));

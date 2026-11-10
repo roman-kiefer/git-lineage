@@ -891,7 +891,7 @@ var GitService = class {
   // Run git with a timeout; failures are mapped to a readable GitError.
   execGit(args, cwd, extraEnv = {}) {
     const timeoutMs = this.getTimeoutMs();
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve6, reject) => {
       (0, import_child_process.execFile)(
         "git",
         args,
@@ -909,7 +909,7 @@ var GitService = class {
             reject(toGitError(error, stderr, args, timeoutMs));
             return;
           }
-          resolve5(stdout);
+          resolve6(stdout);
         }
       );
     });
@@ -920,12 +920,12 @@ var GitService = class {
   }
   // Top-level folder of the repository containing dir (also for a worktree), or undefined.
   static async findRepoRoot(dir, timeoutMs = 3e4) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve6) => {
       (0, import_child_process.execFile)(
         "git",
         ["rev-parse", "--show-toplevel"],
         { cwd: dir, encoding: "utf8", timeout: timeoutMs },
-        (error, stdout) => resolve5(error ? void 0 : path3.resolve(stdout.trim()))
+        (error, stdout) => resolve6(error ? void 0 : path3.resolve(stdout.trim()))
       );
     });
   }
@@ -966,12 +966,12 @@ var normalizeLocale = (value) => {
     return void 0;
   }
 };
-var run = (file, args) => new Promise((resolve5) => {
+var run = (file, args) => new Promise((resolve6) => {
   (0, import_child_process2.execFile)(
     file,
     args,
     { timeout: 3e3, windowsHide: true },
-    (error, stdout) => resolve5(error ? "" : String(stdout))
+    (error, stdout) => resolve6(error ? "" : String(stdout))
   );
 });
 var detect = async () => {
@@ -2182,8 +2182,8 @@ var GraphController = class {
   // Show a form; resolves with the values once validate accepts them, undefined on cancel.
   showForm(spec, validate) {
     const id = `form-${this.nextFormId++}`;
-    return new Promise((resolve5) => {
-      this.openForms.set(id, { validate, resolve: resolve5 });
+    return new Promise((resolve6) => {
+      this.openForms.set(id, { validate, resolve: resolve6 });
       void this.host.post({ type: "showForm", payload: { id, ...spec } });
     });
   }
@@ -2794,9 +2794,11 @@ var DEFAULT_SETTINGS = {
   dateFormat: "short"
 };
 var WORKING_TREE_POLL_MS = 3e3;
+var MAX_VIEW_BYTES = 2 * 1024 * 1024;
 var StandaloneHost = class {
-  constructor(settings = DEFAULT_SETTINGS) {
+  constructor(settings = DEFAULT_SETTINGS, fileAtRef = async () => "") {
     this.settings = settings;
+    this.fileAtRef = fileAtRef;
     this.clients = /* @__PURE__ */ new Set();
     this.pending = /* @__PURE__ */ new Map();
     this.nextRequestId = 1;
@@ -2813,7 +2815,7 @@ var StandaloneHost = class {
     response.on("close", () => {
       this.clients.delete(response);
       if (this.clients.size === 0) {
-        this.pending.forEach((resolve5) => resolve5(void 0));
+        this.pending.forEach((resolve6) => resolve6(void 0));
         this.pending.clear();
         this.onNoClients();
       }
@@ -2821,10 +2823,10 @@ var StandaloneHost = class {
   }
   // Answer from the page to a confirm/prompt/copy request.
   resolveRequest(id, value) {
-    const resolve5 = this.pending.get(id);
-    if (resolve5) {
+    const resolve6 = this.pending.get(id);
+    if (resolve6) {
       this.pending.delete(id);
-      resolve5(typeof value === "string" ? value : void 0);
+      resolve6(typeof value === "string" ? value : void 0);
       void this.post({ type: "hostRequestClosed", payload: { id } });
     }
   }
@@ -2869,11 +2871,16 @@ var StandaloneHost = class {
   async copy(text) {
     await this.request({ kind: "copy", text });
   }
-  async openDiff() {
-    await this.onlyInVsCode("Diff");
+  async openDiff(repoRoot, filePath, leftRef, rightRef, title) {
+    const [left, right] = await Promise.all([
+      this.readSide(repoRoot, filePath, leftRef),
+      this.readSide(repoRoot, filePath, rightRef)
+    ]);
+    await this.showFileView({ mode: "diff", path: filePath, title, left, right });
   }
-  async openFile() {
-    await this.onlyInVsCode("Opening files");
+  async openFile(repoRoot, filePath, ref) {
+    const right = await this.readSide(repoRoot, filePath, ref);
+    await this.showFileView({ mode: "file", path: filePath, title: `${filePath} (${right.label})`, right });
   }
   async openTerminal() {
     await this.onlyInVsCode("The terminal");
@@ -2907,6 +2914,23 @@ var StandaloneHost = class {
       }
     };
   }
+  // A file at a commit, or on disk without ref. Missing files read as empty.
+  async readSide(repoRoot, filePath, ref) {
+    if (ref) {
+      const label = ref.replace(/^([0-9a-f]{7})[0-9a-f]{33}/i, "$1");
+      return { label, text: await this.fileAtRef(repoRoot, ref, filePath) };
+    }
+    return { label: "Working Tree", text: await readWorkingTreeFile(repoRoot, filePath) };
+  }
+  async showFileView(payload) {
+    const sides = [payload.left, payload.right].filter((side) => side !== void 0);
+    if (sides.some((side) => Buffer.byteLength(side.text, "utf8") > MAX_VIEW_BYTES)) {
+      payload = { ...payload, left: payload.left && { ...payload.left, text: "" }, right: { ...payload.right, text: "" }, notice: `The file is larger than ${MAX_VIEW_BYTES / 1024 / 1024} MB and is not shown here.` };
+    } else if (sides.some((side) => isBinary(side.text))) {
+      payload = { ...payload, left: payload.left && { ...payload.left, text: "" }, right: { ...payload.right, text: "" }, notice: "Binary file, not shown." };
+    }
+    await this.post({ type: "showFileView", payload });
+  }
   async onlyInVsCode(feature) {
     await this.post({ type: "status", payload: { message: `${feature} is only available in VS Code.` } });
   }
@@ -2917,12 +2941,26 @@ var StandaloneHost = class {
     }
     const id = this.nextRequestId;
     this.nextRequestId += 1;
-    return new Promise((resolve5) => {
-      this.pending.set(id, resolve5);
+    return new Promise((resolve6) => {
+      this.pending.set(id, resolve6);
       void this.post({ type: "hostRequest", payload: { id, ...request } });
     });
   }
 };
+var readWorkingTreeFile = async (repoRoot, filePath) => {
+  const root = path5.resolve(repoRoot);
+  const target = path5.resolve(root, filePath);
+  const relative2 = path5.relative(root, target);
+  if (!relative2 || relative2.startsWith("..") || path5.isAbsolute(relative2)) {
+    return "";
+  }
+  try {
+    return await fs4.promises.readFile(target, "utf8");
+  } catch {
+    return "";
+  }
+};
+var isBinary = (text) => text.slice(0, 8e3).includes(String.fromCharCode(0));
 
 // src/standalone/server.ts
 var COOKIE_PREFIX = "ggn_token_";
@@ -2977,11 +3015,11 @@ var startServer = async (options) => {
     throw new Error(`${options.repo} is not inside a Git repository.`);
   }
   const settings = { ...DEFAULT_SETTINGS, ...options.settings };
-  const host = new StandaloneHost(settings);
   const gitService = new GitService({
     locateRepositories: async () => [repoRoot],
     timeoutMs: () => Number(settings.gitTimeoutSeconds) * 1e3
   });
+  const host = new StandaloneHost(settings, (root, ref, filePath) => gitService.fileAtRef(root, ref, filePath));
   const controller = new GraphController(host, gitService);
   host.onFirstClient = () => controller.onVisible();
   host.onNoClients = () => controller.onClosed();
@@ -3092,9 +3130,9 @@ var startServer = async (options) => {
     }
     send(response, 404, "Not found.");
   });
-  await new Promise((resolve5, reject) => {
+  await new Promise((resolve6, reject) => {
     server.once("error", reject);
-    server.listen(options.port, "127.0.0.1", () => resolve5());
+    server.listen(options.port, "127.0.0.1", () => resolve6());
   });
   const address = server.address();
   port = typeof address === "object" && address ? address.port : options.port;
@@ -3103,10 +3141,10 @@ var startServer = async (options) => {
     url,
     port,
     token,
-    close: () => new Promise((resolve5) => {
+    close: () => new Promise((resolve6) => {
       controller.onClosed();
       server.closeAllConnections();
-      server.close(() => resolve5());
+      server.close(() => resolve6());
     })
   };
 };

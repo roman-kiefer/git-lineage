@@ -2668,10 +2668,10 @@ ${tip}` : tip;
             const select = document.createElement("select");
             select.className = "form-dialog__input";
             field.options.forEach((option) => {
-              const element = document.createElement("option");
-              element.value = option.value;
-              element.textContent = option.label;
-              select.appendChild(element);
+              const element2 = document.createElement("option");
+              element2.value = option.value;
+              element2.textContent = option.label;
+              select.appendChild(element2);
             });
             if (field.value !== void 0) {
               select.value = field.value;
@@ -2701,7 +2701,7 @@ ${tip}` : tip;
         error.setAttribute("role", "alert");
         elements.push(error);
         errors.set(field.id, error);
-        elements.forEach((element) => grid.appendChild(element));
+        elements.forEach((element2) => grid.appendChild(element2));
         controls.set(field.id, control);
         rows.push({ field, elements });
       });
@@ -2734,12 +2734,12 @@ ${tip}` : tip;
       const update = () => {
         rows.forEach(({ field, elements }) => {
           const shown = isShown(field);
-          elements.forEach((element) => {
-            const ownState = element.classList.contains("form-dialog__error") || element.classList.contains("form-dialog__hint");
+          elements.forEach((element2) => {
+            const ownState = element2.classList.contains("form-dialog__error") || element2.classList.contains("form-dialog__hint");
             if (!ownState) {
-              element.hidden = !shown;
+              element2.hidden = !shown;
             } else if (!shown) {
-              element.hidden = true;
+              element2.hidden = true;
             }
           });
         });
@@ -2861,7 +2861,7 @@ ${tip}` : tip;
     return `${name} waits${commit}: Continue to commit the result.`;
   };
   var stopKey = (state) => `${state.kind}:${state.step ?? ""}:${state.stoppedAt ?? ""}`;
-  var createOperationBanner = (element, actions) => {
+  var createOperationBanner = (element2, actions) => {
     let current;
     let awaiting = false;
     let error;
@@ -2870,11 +2870,11 @@ ${tip}` : tip;
         awaiting = false;
       }
       current = state;
-      if (!element) {
+      if (!element2) {
         return;
       }
-      element.replaceChildren();
-      element.hidden = !state;
+      element2.replaceChildren();
+      element2.hidden = !state;
       if (!state) {
         error = void 0;
         return;
@@ -2906,31 +2906,31 @@ ${tip}` : tip;
       const buttons = document.createElement("span");
       buttons.className = "operation-banner__buttons";
       const button = (label, action, title) => {
-        const element2 = document.createElement("button");
-        element2.type = "button";
-        element2.className = `operation-banner__button${action === "continue" ? " operation-banner__button--primary" : ""}`;
-        element2.textContent = label;
-        element2.title = title;
-        element2.addEventListener("click", () => {
+        const element3 = document.createElement("button");
+        element3.type = "button";
+        element3.className = `operation-banner__button${action === "continue" ? " operation-banner__button--primary" : ""}`;
+        element3.textContent = label;
+        element3.title = title;
+        element3.addEventListener("click", () => {
           error = void 0;
           awaiting = true;
           update(current);
           actions.act(action);
         });
-        return element2;
+        return element3;
       };
       buttons.append(button("Continue", "continue", "Mark the resolved files as resolved and go on"));
       if (state.kind !== "merge") {
         buttons.append(button("Skip", "skip", "Leave out this commit and go on"));
       }
       buttons.append(button("Abort", "abort", `Cancel the ${state.kind} and go back to where it started`));
-      element.append(icon, text, files, buttons);
+      element2.append(icon, text, files, buttons);
       if (error) {
         const problem = document.createElement("div");
         problem.className = "operation-banner__error";
         problem.setAttribute("role", "alert");
         problem.textContent = error.message;
-        element.append(problem);
+        element2.append(problem);
       }
     };
     const showError = (message) => {
@@ -3031,14 +3031,14 @@ ${tip}` : tip;
       };
       let dragFrom;
       const renderRow = (row, index) => {
-        const element = document.createElement("div");
-        row.element = element;
-        element.className = `rebase-row rebase-row--${row.action}`;
-        element.dataset.hash = row.commit.hash;
-        element.tabIndex = 0;
-        element.setAttribute("role", "listitem");
-        element.setAttribute("aria-label", `${row.action} ${row.commit.shortHash} ${row.commit.subject}`);
-        element.draggable = true;
+        const element2 = document.createElement("div");
+        row.element = element2;
+        element2.className = `rebase-row rebase-row--${row.action}`;
+        element2.dataset.hash = row.commit.hash;
+        element2.tabIndex = 0;
+        element2.setAttribute("role", "listitem");
+        element2.setAttribute("aria-label", `${row.action} ${row.commit.shortHash} ${row.commit.subject}`);
+        element2.draggable = true;
         const grip = document.createElement("span");
         grip.className = "rebase-row__grip";
         grip.textContent = "\u22EE\u22EE";
@@ -3084,28 +3084,28 @@ ${tip}` : tip;
           subject.title = row.commit.message;
           text.appendChild(subject);
         }
-        element.append(grip, select, hash, text);
-        element.addEventListener("dragstart", (event) => {
+        element2.append(grip, select, hash, text);
+        element2.addEventListener("dragstart", (event) => {
           dragFrom = index;
-          element.classList.add("rebase-row--dragging");
+          element2.classList.add("rebase-row--dragging");
           event.dataTransfer?.setData("text/plain", row.commit.hash);
         });
-        element.addEventListener("dragend", () => {
+        element2.addEventListener("dragend", () => {
           dragFrom = void 0;
-          element.classList.remove("rebase-row--dragging");
+          element2.classList.remove("rebase-row--dragging");
         });
-        element.addEventListener("dragover", (event) => {
+        element2.addEventListener("dragover", (event) => {
           if (dragFrom !== void 0) {
             event.preventDefault();
           }
         });
-        element.addEventListener("drop", (event) => {
+        element2.addEventListener("drop", (event) => {
           event.preventDefault();
           if (dragFrom !== void 0) {
             move(dragFrom, index);
           }
         });
-        return element;
+        return element2;
       };
       list.addEventListener("keydown", (event) => {
         const rowElement = event.target.closest(".rebase-row");
@@ -3236,6 +3236,272 @@ ${tip}` : tip;
     return { handle };
   };
 
+  // webview/src/graph/lineDiff.ts
+  var splitLines = (text) => {
+    if (text === "") {
+      return [];
+    }
+    const lines = text.split(/\r?\n/);
+    if (lines[lines.length - 1] === "") {
+      lines.pop();
+    }
+    return lines;
+  };
+  var shortestEdit = (a, b, maxEdits) => {
+    const n = a.length;
+    const m = b.length;
+    const max = n + m;
+    const offset = max + 1;
+    const v = new Int32Array(2 * max + 3);
+    const trace = [];
+    const limit = Math.min(max, maxEdits);
+    for (let d = 0; d <= limit; d += 1) {
+      trace.push(v.slice(offset - d - 1, offset + d + 2));
+      for (let k = -d; k <= d; k += 2) {
+        let x = k === -d || k !== d && v[offset + k - 1] < v[offset + k + 1] ? v[offset + k + 1] : v[offset + k - 1] + 1;
+        let y = x - k;
+        while (x < n && y < m && a[x] === b[y]) {
+          x += 1;
+          y += 1;
+        }
+        v[offset + k] = x;
+        if (x >= n && y >= m) {
+          return backtrack(trace, d, n, m);
+        }
+      }
+    }
+    return void 0;
+  };
+  var backtrack = (trace, edits, n, m) => {
+    const ops = [];
+    let x = n;
+    let y = m;
+    for (let d = edits; d > 0; d -= 1) {
+      const before = trace[d];
+      const at = (k2) => before[k2 + d + 1];
+      const k = x - y;
+      const down = k === -d || k !== d && at(k - 1) < at(k + 1);
+      const prevK = down ? k + 1 : k - 1;
+      const prevX = at(prevK);
+      const prevY = prevX - prevK;
+      while (x > prevX && y > prevY) {
+        ops.push("same");
+        x -= 1;
+        y -= 1;
+      }
+      ops.push(down ? "add" : "del");
+      x = prevX;
+      y = prevY;
+    }
+    while (x > 0 && y > 0) {
+      ops.push("same");
+      x -= 1;
+      y -= 1;
+    }
+    return ops.reverse();
+  };
+  var diffLines = (oldText, newText, maxEdits = 4e3) => {
+    const a = splitLines(oldText);
+    const b = splitLines(newText);
+    let start = 0;
+    while (start < a.length && start < b.length && a[start] === b[start]) {
+      start += 1;
+    }
+    let endA = a.length;
+    let endB = b.length;
+    while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) {
+      endA -= 1;
+      endB -= 1;
+    }
+    const midA = a.slice(start, endA);
+    const midB = b.slice(start, endB);
+    const middle = shortestEdit(midA, midB, maxEdits) ?? [...midA.map(() => "del"), ...midB.map(() => "add")];
+    const ops = [...Array(start).fill("same"), ...middle, ...Array(a.length - endA).fill("same")];
+    const lines = [];
+    let i = 0;
+    let j = 0;
+    ops.forEach((op) => {
+      if (op === "same") {
+        lines.push({ kind: "same", text: b[j], oldNo: i + 1, newNo: j + 1 });
+        i += 1;
+        j += 1;
+      } else if (op === "del") {
+        lines.push({ kind: "del", text: a[i], oldNo: i + 1 });
+        i += 1;
+      } else {
+        lines.push({ kind: "add", text: b[j], newNo: j + 1 });
+        j += 1;
+      }
+    });
+    return lines;
+  };
+  var groupHunks = (lines, context = 3) => {
+    const visible = new Array(lines.length).fill(false);
+    lines.forEach((line, index2) => {
+      if (line.kind !== "same") {
+        for (let near = Math.max(0, index2 - context); near <= Math.min(lines.length - 1, index2 + context); near += 1) {
+          visible[near] = true;
+        }
+      }
+    });
+    const segments = [];
+    let index = 0;
+    while (index < lines.length) {
+      const shown = visible[index];
+      let end = index;
+      while (end < lines.length && visible[end] === shown) {
+        end += 1;
+      }
+      segments.push({ type: shown ? "lines" : "gap", start: index, end });
+      index = end;
+    }
+    return segments;
+  };
+  var countChanges = (lines) => ({
+    added: lines.filter((line) => line.kind === "add").length,
+    removed: lines.filter((line) => line.kind === "del").length
+  });
+
+  // webview/src/graph/fileViewer.ts
+  var element = (tag, className, text) => {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text !== void 0) {
+      node.textContent = text;
+    }
+    return node;
+  };
+  var MARKS = { same: " ", del: "\u2212", add: "+" };
+  var renderDiffLine = (line) => {
+    const row = element("div", `file-view__line file-view__line--${line.kind}`);
+    row.append(
+      element("span", "file-view__no", line.oldNo === void 0 ? "" : String(line.oldNo)),
+      element("span", "file-view__no", line.newNo === void 0 ? "" : String(line.newNo)),
+      element("span", "file-view__mark", MARKS[line.kind]),
+      element("span", "file-view__text", line.text)
+    );
+    return row;
+  };
+  var renderFileLine = (text, index) => {
+    const row = element("div", "file-view__line file-view__line--file");
+    row.append(element("span", "file-view__no", String(index + 1)), element("span", "file-view__text", text));
+    return row;
+  };
+  var renderGap = (lines, start, end) => {
+    const count = end - start;
+    const gap = element("button", "file-view__gap", `\u22EF ${count} unchanged line${count === 1 ? "" : "s"}`);
+    gap.type = "button";
+    gap.title = "Show these lines";
+    gap.addEventListener("click", () => {
+      const fragment = document.createDocumentFragment();
+      lines.slice(start, end).forEach((line) => fragment.appendChild(renderDiffLine(line)));
+      gap.replaceWith(fragment);
+    });
+    return gap;
+  };
+  var renderDiff = (request, body, summary) => {
+    const lines = diffLines(request.left?.text ?? "", request.right.text);
+    const { added, removed } = countChanges(lines);
+    summary.append(element("span", "file-view__added", `+${added}`), element("span", "file-view__removed", `\u2212${removed}`));
+    if (added === 0 && removed === 0) {
+      body.appendChild(element("div", "file-view__notice", "No changes in this file."));
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    groupHunks(lines).forEach((segment) => {
+      if (segment.type === "gap") {
+        fragment.appendChild(renderGap(lines, segment.start, segment.end));
+      } else {
+        lines.slice(segment.start, segment.end).forEach((line) => fragment.appendChild(renderDiffLine(line)));
+      }
+    });
+    body.appendChild(fragment);
+  };
+  var renderFile = (request, body) => {
+    const lines = splitLines(request.right.text);
+    if (lines.length === 0) {
+      body.appendChild(element("div", "file-view__notice", "The file is empty or does not exist here."));
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    lines.forEach((text, index) => fragment.appendChild(renderFileLine(text, index)));
+    body.appendChild(fragment);
+  };
+  var createFileViewer = () => {
+    let open;
+    const close = () => {
+      if (!open) {
+        return;
+      }
+      const { backdrop, returnFocus } = open;
+      open = void 0;
+      backdrop.remove();
+      if (returnFocus instanceof HTMLElement) {
+        returnFocus.focus();
+      }
+    };
+    const show = (request) => {
+      const returnFocus = open?.returnFocus ?? document.activeElement;
+      close();
+      const backdrop = element("div", "file-view-backdrop");
+      const dialog = element("div", "file-view");
+      dialog.setAttribute("role", "dialog");
+      dialog.setAttribute("aria-modal", "true");
+      const header = element("div", "file-view__header");
+      const title = element("div", "file-view__title", request.title);
+      title.id = "file-view-title";
+      dialog.setAttribute("aria-labelledby", title.id);
+      const sides = element("div", "file-view__sides");
+      sides.textContent = request.mode === "diff" && request.left ? `${request.left.label} \u2192 ${request.right.label}` : request.right.label;
+      const summary = element("div", "file-view__summary");
+      const closeButton = element("button", "file-view__close", "\xD7");
+      closeButton.type = "button";
+      closeButton.title = "Close (Esc)";
+      closeButton.setAttribute("aria-label", "Close");
+      closeButton.addEventListener("click", close);
+      const heading = element("div", "file-view__heading");
+      heading.append(title, sides);
+      header.append(heading, summary, closeButton);
+      const body = element("div", "file-view__body");
+      body.tabIndex = 0;
+      body.setAttribute("aria-label", request.mode === "diff" ? "Changes" : "File content");
+      if (request.notice) {
+        body.appendChild(element("div", "file-view__notice", request.notice));
+      } else if (request.mode === "diff") {
+        renderDiff(request, body, summary);
+      } else {
+        body.classList.add("file-view__body--file");
+        renderFile(request, body);
+      }
+      dialog.append(header, body);
+      dialog.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          close();
+        }
+      });
+      backdrop.addEventListener("mousedown", (event) => {
+        if (event.target === backdrop) {
+          close();
+        }
+      });
+      backdrop.appendChild(dialog);
+      document.body.appendChild(backdrop);
+      open = { backdrop, returnFocus };
+      body.focus();
+    };
+    return {
+      handle: (message) => {
+        if (message.type !== "showFileView" || !message.payload) {
+          return false;
+        }
+        show(message.payload);
+        return true;
+      },
+      close
+    };
+  };
+
   // webview/src/graph/graphScroll.ts
   var graphScrollX = (overlay) => Number(overlay.dataset.scrollX) || 0;
   var bindGraphScroll = ({ overlay, items, scroller }) => {
@@ -3350,26 +3616,26 @@ ${tip}` : tip;
   var DOT_HIT_RADIUS = 9;
   var SHOW_DELAY_MS = 250;
   var chip = (text, scope) => {
-    const element = document.createElement("span");
-    element.className = "commit-hover__chip";
-    element.textContent = text;
+    const element2 = document.createElement("span");
+    element2.className = "commit-hover__chip";
+    element2.textContent = text;
     if (scope) {
       const remote = document.createElement("span");
       remote.className = "commit-hover__scope";
       remote.textContent = scope;
-      element.appendChild(remote);
+      element2.appendChild(remote);
     }
-    return element;
+    return element2;
   };
   var section = (label, chips) => {
-    const element = document.createElement("div");
-    element.className = "commit-hover__section";
+    const element2 = document.createElement("div");
+    element2.className = "commit-hover__section";
     const title = document.createElement("span");
     title.className = "commit-hover__label";
     title.textContent = label;
-    element.appendChild(title);
-    chips.forEach((entry) => element.appendChild(entry));
-    return element;
+    element2.appendChild(title);
+    chips.forEach((entry) => element2.appendChild(entry));
+    return element2;
   };
   var bindCommitHover = ({ items, overlay, getCommits }) => {
     const popup = document.createElement("div");
@@ -3788,8 +4054,8 @@ ${tip}` : tip;
     }
     return hidden;
   };
-  var cssWidth = (element, name, fallback) => {
-    const value = Number.parseFloat(getComputedStyle(element).getPropertyValue(name));
+  var cssWidth = (element2, name, fallback) => {
+    const value = Number.parseFloat(getComputedStyle(element2).getPropertyValue(name));
     return Number.isFinite(value) ? value : fallback;
   };
   var bindColumnVisibility = (list) => {
@@ -4360,13 +4626,14 @@ ${tip}` : tip;
     setupCommitDetails(context);
     const formDialog = createFormDialog({ submit: actions.formSubmit, cancel: actions.formCancel });
     const rebaseDialog = createRebaseDialog({ submit: actions.rebaseSubmit, cancel: actions.rebaseCancel });
+    const fileViewer = createFileViewer();
     const banner = createOperationBanner(document.getElementById("operation-banner"), {
       act: actions.operationAction,
       openConflict: actions.openConflict
     });
     onHostMessage((data) => {
       const message = data;
-      if (formDialog.handle(message) || rebaseDialog.handle(message)) {
+      if (formDialog.handle(message) || rebaseDialog.handle(message) || fileViewer.handle(message)) {
         return;
       }
       if ((message.type === "init" || message.type === "commits") && message.payload && "operation" in message.payload) {

@@ -101,11 +101,11 @@ export const startServer = async (options: ServerOptions): Promise<RunningServer
     throw new Error(`${options.repo} is not inside a Git repository.`);
   }
   const settings = { ...DEFAULT_SETTINGS, ...options.settings };
-  const host = new StandaloneHost(settings);
   const gitService = new GitService({
     locateRepositories: async () => [repoRoot],
     timeoutMs: () => Number(settings.gitTimeoutSeconds) * 1000,
   });
+  const host = new StandaloneHost(settings, (root, ref, filePath) => gitService.fileAtRef(root, ref, filePath));
   const controller = new GraphController(host, gitService);
   host.onFirstClient = () => controller.onVisible();
   host.onNoClients = () => controller.onClosed();

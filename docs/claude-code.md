@@ -29,8 +29,9 @@ The settings of the VS Code extension apply with their defaults. To change one, 
 
 ## What works only in VS Code
 
-- Diff and Open for changed files, and "Show in Terminal": the status line says so in the browser pane.
-- "Open Worktree in New Window".
+- "Show in Terminal" and "Open Worktree in New Window": the status line says so in the browser pane.
+
+Diff and Open for changed files work in the browser pane too, in a read-only view of the page itself: Diff shows the changed lines with a few lines around them (a click on "⋯ unchanged lines" shows the rest), Open shows the whole file. Files larger than 2 MB and binary files are not shown. No editor or other program is started.
 
 Everything else works the same: checkout, branches, tags, merge, rebase (also interactive), cherry-pick, revert, reset, stashes, worktrees, with the same confirmation forms. Changes to HEAD, refs and the index show up at once; the working tree is checked every 3 seconds, other worktrees every 10 seconds.
 

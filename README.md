@@ -25,7 +25,7 @@ Then ask Claude to show the git graph, or run `/git-lineage:git-graph`. Claude s
 - **Graph** of the history with its own lane layout: branches and merges as curves, lanes move left into freed columns, colors stay stable while you scroll and load more. Commits load page by page as you scroll. When there are more lanes than fit, the graph column scrolls sideways.
 - **Ref chips** for local and remote branches (paired when they point to the same commit), tags, HEAD and stashes. Local branches show how far they are from their upstream: `↑2 ↓1` (commits to push / to pull, as of the last fetch), or `gone` when the upstream was deleted.
 - **Uncommitted Changes** row above HEAD with the changed files of the working tree.
-- **Commit details**: message, author, date and changed files with Diff and Open (VS Code); copy hash and message.
+- **Commit details**: message, author, date and changed files with Diff and Open (VS Code editors; a read-only view in the browser pane); copy hash and message.
 - **Hover** over a commit dot: which branches and tags contain the commit, and whether HEAD does.
 - **Worktrees**: switch between them in the toolbar; branches checked out in a linked worktree are marked on their chip and in the graph; other worktrees with changes get their own "Uncommitted Changes in &lt;name&gt;" row. Add, switch to, open (VS Code), copy the path of and remove worktrees from the context menu.
 - **Context menu** (right-click or the menu key); everything except a plain branch checkout asks first in a short form:

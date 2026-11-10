@@ -24,6 +24,7 @@ import { createViewHelpers, type ViewHelpers } from './viewHelpers';
 import { createFormDialog } from './formDialog';
 import { createOperationBanner, type OperationState } from './operationBanner';
 import { createRebaseDialog } from './rebaseDialog';
+import { createFileViewer } from './fileViewer';
 import { bindCommitHover } from './commitHover';
 import { bindGraphScroll } from './graphScroll';
 import { renderAppShell } from './renderShell';
@@ -306,13 +307,15 @@ export const bootstrapGraphApp = (vscode: VsCodeApi): void => {
   const formDialog = createFormDialog({ submit: actions.formSubmit, cancel: actions.formCancel });
   // Rebase view and the banner of a stopped operation (state comes with every commit list).
   const rebaseDialog = createRebaseDialog({ submit: actions.rebaseSubmit, cancel: actions.rebaseCancel });
+  // Diff and Open in the browser pane (VS Code opens its own editors and never sends this).
+  const fileViewer = createFileViewer();
   const banner = createOperationBanner(document.getElementById('operation-banner'), {
     act: actions.operationAction,
     openConflict: actions.openConflict,
   });
   onHostMessage((data) => {
     const message = data as { type?: string; payload?: Record<string, unknown> };
-    if (formDialog.handle(message) || rebaseDialog.handle(message)) {
+    if (formDialog.handle(message) || rebaseDialog.handle(message) || fileViewer.handle(message)) {
       return;
     }
     if ((message.type === 'init' || message.type === 'commits') && message.payload && 'operation' in message.payload) {

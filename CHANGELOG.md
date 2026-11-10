@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ver
 
 ## [Unreleased]
 
+### Added
+
+- Browser pane (Claude Code plugin): Diff and Open in the commit details now work there too, in a read-only view in the page (changed lines with context, or the whole file).
+
+### Fixed
+
+- VS Code: Diff and Open in the commit details failed with "The editor could not be opened" (on Windows, and for repositories VS Code's Git extension had not opened). The file contents now come from `git show`.
+- Diff on a commit now shows that commit's changes (first parent against the commit) instead of comparing the commit with the working tree.
+
 ### Changed
 
 - The checked-out branch is easier to spot: its chip shows the name larger and in bold (on a detached HEAD, the HEAD chip).
