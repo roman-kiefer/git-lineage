@@ -77,6 +77,30 @@ export const samePath = (a: string | undefined, b: string | undefined): boolean 
 export const worktreeName = (worktreePath: string): string =>
   path.basename(worktreePath) || worktreePath;
 
+// Display names for all worktrees of a repository: the folder name, and where folder names
+// clash (e.g. tools that put every worktree in ".../<id>/<repo>") as many parent folders as
+// needed to tell them apart, e.g. "5b98/repo" and "3e75/repo".
+export const uniqueWorktreeNames = (paths: string[]): string[] => {
+  const parts = paths.map((value) => path.resolve(value).split(/[\\/]+/).filter(Boolean));
+  const depth = parts.map(() => 1);
+  const label = (index: number): string => parts[index].slice(-depth[index]).join('/') || paths[index];
+  for (;;) {
+    const names = parts.map((_, index) => label(index));
+    const keys = names.map((name) => name.toLowerCase());
+    const clashes = keys.map(
+      (key, index) => depth[index] < parts[index].length && keys.some((other, j) => j !== index && other === key),
+    );
+    if (!clashes.some(Boolean)) {
+      return names;
+    }
+    clashes.forEach((clash, index) => {
+      if (clash) {
+        depth[index] += 1;
+      }
+    });
+  }
+};
+
 // Default folder for a new worktree: next to the main worktree in "<repo>.worktrees/<name>".
 export const defaultWorktreePath = (mainWorktree: string, name: string): string => {
   const safe = name.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'worktree';

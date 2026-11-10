@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GraphController } from '../src/core/graphController';
 import type { ConfirmOptions, GraphHost, PromptOptions } from '../src/core/graphHost';
 import { GitService } from '../src/git/gitService';
-import { defaultWorktreePath, parseWorktreeList, samePath } from '../src/git/worktrees';
+import { defaultWorktreePath, parseWorktreeList, samePath, uniqueWorktreeNames } from '../src/git/worktrees';
 import { FormAnswerer } from './helpers/formAnswers';
 
 describe('git worktree list --porcelain', () => {
@@ -23,6 +23,20 @@ describe('git worktree list --porcelain', () => {
       [false, 'ccc', undefined, true, false, true],
     ]);
     expect(samePath(list[1].path, path.resolve('C:/wt/feature'))).toBe(true);
+  });
+
+  it('display names: the folder name, with parent folders only where folder names clash', () => {
+    const names = uniqueWorktreeNames([
+      'C:/work/repo',
+      'S:/Codex/worktrees/5b79/repo',
+      'S:/Codex/worktrees/3e75/repo',
+      'S:/Claude/worktrees/repo/ui-sync',
+      'S:/a/x/Repo',
+    ]);
+    expect(names).toEqual(['work/repo', '5b79/repo', '3e75/repo', 'ui-sync', 'x/Repo']);
+    expect(uniqueWorktreeNames(['C:/one/app', 'C:/two/lib'])).toEqual(['app', 'lib']);
+    // Deeper clashes take more parents.
+    expect(uniqueWorktreeNames(['/a/b/x/repo', '/c/b/x/repo'])).toEqual(['a/b/x/repo', 'c/b/x/repo']);
   });
 
   it('suggested folder for a new worktree: next to the repository in <repo>.worktrees', () => {
@@ -127,7 +141,7 @@ describe('Worktrees in the graph', () => {
     const featHead = git(feat, 'rev-parse', 'HEAD');
     const index = rows.findIndex((row) => row.hash === `__uncommitted__:${feat}`);
     expect(index).toBeGreaterThanOrEqual(0);
-    expect(rows[index]).toMatchObject({ subject: 'Uncommitted Changes in wt-feat (1)', parents: [featHead], isUncommitted: true });
+    expect(rows[index]).toMatchObject({ subject: 'Uncommitted Changes in wt-feat · feat (1)', parents: [featHead], isUncommitted: true });
     expect(rows[index + 1].hash).toBe(featHead);
     // Branch feat carries its worktree, the detached probe worktree has its own chip.
     expect(rows[index + 1].refs).toContainEqual(expect.objectContaining({ name: 'feat', type: 'local', worktree: 'wt-feat' }));

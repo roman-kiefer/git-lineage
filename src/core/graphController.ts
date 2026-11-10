@@ -12,7 +12,7 @@ import {
   type RebaseCommit,
   type RebaseStep,
 } from '../git/rebase';
-import { defaultWorktreePath, samePath, worktreeName, type WorktreeInfo } from '../git/worktrees';
+import { defaultWorktreePath, samePath, uniqueWorktreeNames, worktreeName, type WorktreeInfo } from '../git/worktrees';
 import { getOsLocale } from '../utils/osLocale';
 import type { CommitAction, WebviewMessage, WorktreeAction } from '../webview/webviewMessages';
 import { formFlag, formText, type FormProblem, type FormSpec, type FormValues } from './forms';
@@ -64,6 +64,10 @@ const NOTICE_KEEP_MS = 5000;
 
 // A worktree of the shown repository with its uncommitted changes.
 type WorktreeState = WorktreeInfo & { name: string; isCurrent: boolean; changes: CommitFileChange[] };
+
+// Uncommitted row of another worktree: its name and branch, so it is clear where the files live.
+const otherWorktreeSubject = (worktree: WorktreeState): string =>
+  `Uncommitted Changes in ${worktree.name}${worktree.branch ? ` · ${worktree.branch}` : ''} (${worktree.changes.length})`;
 
 // Hash of the "Uncommitted Changes" row (no real commit; diffs compare HEAD with the working tree).
 // Rows of other worktrees use "__uncommitted__:<worktree folder>".
@@ -603,7 +607,7 @@ export class GraphController {
     }
     await this.gitService.setSelectedWorktree(target.path);
     this.loadedCommits = [];
-    await this.reload('commits', `Switched to worktree ${worktreeName(target.path)}.`);
+    await this.reload('commits', `Switched to worktree ${this.nameOfWorktree(target.path)}.`);
   }
 
   private async handleWorktreeAction(action: WorktreeAction, folder: string): Promise<void> {
@@ -612,7 +616,7 @@ export class GraphController {
     if (!target) {
       throw new GitError(`${folder} is not a worktree of this repository.`);
     }
-    const name = worktreeName(target.path);
+    const name = this.nameOfWorktree(target.path);
     switch (action) {
       case 'switch':
         await this.switchWorktree(target.path);
@@ -631,7 +635,7 @@ export class GraphController {
   }
 
   private async handleRemoveWorktree(target: WorktreeInfo): Promise<void> {
-    const name = worktreeName(target.path);
+    const name = this.nameOfWorktree(target.path);
     if (target.isMain) {
       throw new GitError('The main worktree cannot be removed.');
     }
@@ -1756,9 +1760,7 @@ export class GraphController {
             authorName: '*',
             authorEmail: '',
             authorDate: localIsoNow(),
-            subject: other
-              ? `Uncommitted Changes in ${other.name} (${files.length})`
-              : `Uncommitted Changes (${files.length})`,
+            subject: other ? otherWorktreeSubject(other) : `Uncommitted Changes (${files.length})`,
             body: other ? other.path : '',
             files,
           },
@@ -1909,7 +1911,7 @@ export class GraphController {
       parents: [head.hash],
       authorName: '*',
       authorDate: localIsoNow(),
-      subject: `Uncommitted Changes in ${worktree.name} (${worktree.changes.length})`,
+      subject: otherWorktreeSubject(worktree),
       refs: [],
       graphPrefix: head.graphPrefix,
       isUncommitted: true,
@@ -1943,9 +1945,10 @@ export class GraphController {
     if (list.length <= 1) {
       return list.map((info) => ({ ...info, name: worktreeName(info.path), isCurrent: true, changes: currentChanges }));
     }
-    const states: WorktreeState[] = list.map((info) => ({
+    const names = uniqueWorktreeNames(list.map((info) => info.path));
+    const states: WorktreeState[] = list.map((info, index) => ({
       ...info,
-      name: worktreeName(info.path),
+      name: names[index],
       isCurrent: samePath(info.path, this.repoRoot),
       changes: [],
     }));
@@ -1966,6 +1969,11 @@ export class GraphController {
 
   private worktreeByPath(folder: string): WorktreeState | undefined {
     return this.worktrees.find((worktree) => samePath(worktree.path, folder));
+  }
+
+  // Display name of a worktree (unique among the repository's worktrees once loaded).
+  private nameOfWorktree(folder: string): string {
+    return this.worktreeByPath(folder)?.name ?? worktreeName(folder);
   }
 
   // Pseudo commit on top whose parent is HEAD, so the graph draws a line down to HEAD.
