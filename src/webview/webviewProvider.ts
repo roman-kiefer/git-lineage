@@ -18,6 +18,14 @@ const config = (): vscode.WorkspaceConfiguration => vscode.workspace.getConfigur
 
 // VS Code host: the webview panel plus everything VS Code offers (dialogs, diff, terminal).
 // The graph logic itself lives in GraphController (shared with the Claude Code browser pane).
+const FILE_AT_REF_SCHEME = 'git-lineage';
+
+interface FileAtRefQuery {
+  repoRoot: string;
+  filePath: string;
+  ref: string;
+}
+
 export class GitGraphWebviewProvider implements GraphHost {
   private panel: vscode.WebviewPanel | undefined;
   private readonly controller: GraphController;
@@ -30,6 +38,13 @@ export class GitGraphWebviewProvider implements GraphHost {
     this.controller = new GraphController(this, gitService);
 
     context.subscriptions.push(
+      // File contents at a commit for Diff and Open, read with git show.
+      vscode.workspace.registerTextDocumentContentProvider(FILE_AT_REF_SCHEME, {
+        provideTextDocumentContent: (uri) => {
+          const { repoRoot, filePath, ref } = JSON.parse(uri.query) as FileAtRefQuery;
+          return gitService.fileAtRef(repoRoot, ref, filePath);
+        },
+      }),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('gitLineage')) {
           this.controller.onConfigurationChanged({
@@ -135,13 +150,13 @@ export class GitGraphWebviewProvider implements GraphHost {
     title: string,
   ): Promise<void> {
     const absPath = vscode.Uri.joinPath(vscode.Uri.file(repoRoot), filePath);
-    const right = rightRef ? this.gitUri(absPath, rightRef) : absPath;
-    await vscode.commands.executeCommand('vscode.diff', this.gitUri(absPath, leftRef), right, title);
+    const right = rightRef ? this.gitUri(repoRoot, filePath, rightRef) : absPath;
+    await vscode.commands.executeCommand('vscode.diff', this.gitUri(repoRoot, filePath, leftRef), right, title);
   }
 
   async openFile(repoRoot: string, filePath: string, ref: string | undefined): Promise<void> {
     const absPath = vscode.Uri.joinPath(vscode.Uri.file(repoRoot), filePath);
-    await vscode.commands.executeCommand('vscode.open', ref ? this.gitUri(absPath, ref) : absPath);
+    await vscode.commands.executeCommand('vscode.open', ref ? this.gitUri(repoRoot, filePath, ref) : absPath);
   }
 
   async openFolder(folder: string): Promise<void> {
@@ -179,12 +194,13 @@ export class GitGraphWebviewProvider implements GraphHost {
     return { dispose: () => disposables.forEach((disposable) => disposable.dispose()) };
   }
 
-  // File content at a commit, served by VS Code's Git extension. It reads the file path
-  // from the query, so it must be there; the URI keeps the file URI's path (a Windows
-  // path parsed into a URI string would lose its drive letter and backslashes).
-  // A file missing at that ref (added or deleted in the commit) shows as empty.
-  private gitUri(absPath: vscode.Uri, ref: string): vscode.Uri {
-    return absPath.with({ scheme: 'git', query: JSON.stringify({ path: absPath.fsPath, ref }) });
+  // File content at a commit, served by our own content provider (not VS Code's Git
+  // extension, which only knows repositories it has opened). The URI keeps the file's
+  // path so the editor shows the right name and language.
+  private gitUri(repoRoot: string, filePath: string, ref: string): vscode.Uri {
+    const absPath = vscode.Uri.joinPath(vscode.Uri.file(repoRoot), filePath);
+    const query: FileAtRefQuery = { repoRoot, filePath, ref };
+    return absPath.with({ scheme: FILE_AT_REF_SCHEME, query: JSON.stringify(query) });
   }
 
   private getHtml(): string {

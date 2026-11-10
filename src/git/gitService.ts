@@ -733,6 +733,19 @@ export class GitService {
     return repoRoot;
   }
 
+  // Content of a file (path relative to repoRoot, forward slashes) at a commit; empty when
+  // the file does not exist there (added or deleted in the compared commit, or a root commit).
+  async fileAtRef(repoRoot: string, ref: string, filePath: string): Promise<string> {
+    if (ref.startsWith('-')) {
+      throw new GitError(`Invalid ref: ${ref}`);
+    }
+    try {
+      return await this.execGit(['show', `${ref}:${filePath}`], repoRoot);
+    } catch {
+      return '';
+    }
+  }
+
   // Run git with a timeout; failures are mapped to a readable GitError.
   private execGit(args: string[], cwd: string, extraEnv: Record<string, string> = {}): Promise<string> {
     const timeoutMs = this.getTimeoutMs();
