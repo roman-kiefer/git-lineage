@@ -40,9 +40,10 @@ The server is reachable only from your computer and runs only while it is starte
 
 - It listens on `127.0.0.1` only.
 - The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>` (protection against DNS rebinding).
-- Every start creates a random token (32 bytes). The start page sets it as a cookie (`HttpOnly`, `SameSite=Strict`, named after the port); the event stream, the scripts and all messages require it.
+- Every start creates a random token (32 bytes). The start page needs it in the URL (`?token=...`, the URL the server prints) and then sets it as a cookie (`HttpOnly`, `SameSite=Strict`, named after the port); the event stream, the scripts and all messages require it. Other programs and other user accounts on the same computer therefore cannot open the graph without the printed URL.
 - Messages are accepted only as POST with `Content-Type: application/json` and the server's own `Origin`; there are no CORS headers, so other web pages can neither read data nor trigger actions.
 - Git runs without a shell and never asks for passwords (credential helpers such as Git Credential Manager still work). Names are checked by Git (`git check-ref-format`), and every action that changes the repository, except a plain branch checkout, asks first in the page.
+- Other pages can neither embed the graph (`frame-ancestors 'none'`) nor keep a reference to a window they opened with it (`Cross-Origin-Opener-Policy: same-origin`); the page only accepts messages from its own server connection.
 - The page icon (`/favicon.png`) is the only file served without the token.
 
-To keep out other user accounts on the same computer as well, the server can be started with `--require-token`: then even the start page needs the full URL with `?token=...` that the server prints.
+`--no-require-token` lets the start page hand out the cookie without `?token=...` (only for setups where the plain URL must work; any program on the computer can then open the graph).

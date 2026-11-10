@@ -1,5 +1,6 @@
 import type { CommitView } from './model';
 import type { WebviewActions } from './webviewActions';
+import { onHostMessage } from './hostMessages';
 
 // Ref under the mouse (from the chip's data attributes).
 export type ContextRef = {
@@ -308,8 +309,8 @@ export const bindContextMenu = (
     }
   };
 
-  window.addEventListener('message', (event) => {
-    const message = event.data as { type?: string; payload?: TagInfo };
+  onHostMessage((data) => {
+    const message = data as { type?: string; payload?: TagInfo };
     if (message?.type === 'tagInfo' && message.payload) {
       showTagInfo(message.payload);
     }

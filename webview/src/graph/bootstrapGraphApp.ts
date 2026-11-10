@@ -44,6 +44,7 @@ import {
   virtualTrackColor,
   visualLaneCount,
 } from './graphConfig';
+import { onHostMessage } from './hostMessages';
 
 type VsCodeApi = {
   postMessage: (message: unknown) => void;
@@ -237,8 +238,8 @@ const setupMessageHandling = (
     updateCommitDetails,
   });
 
-  window.addEventListener('message', (event) => {
-    handleWebviewMessage(event.data as WebviewIncomingMessage);
+  onHostMessage((data) => {
+    handleWebviewMessage(data as WebviewIncomingMessage);
   });
 };
 
@@ -309,8 +310,8 @@ export const bootstrapGraphApp = (vscode: VsCodeApi): void => {
     act: actions.operationAction,
     openConflict: actions.openConflict,
   });
-  window.addEventListener('message', (event) => {
-    const message = event.data as { type?: string; payload?: Record<string, unknown> };
+  onHostMessage((data) => {
+    const message = data as { type?: string; payload?: Record<string, unknown> };
     if (formDialog.handle(message) || rebaseDialog.handle(message)) {
       return;
     }

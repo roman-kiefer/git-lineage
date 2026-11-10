@@ -180,6 +180,9 @@ events.onerror = () => {
   }
 };
 
+// The webview accepts only the bridge's own message events in this mode (see graph/hostMessages.ts).
+(window as unknown as { gitLineageStandalone: boolean }).gitLineageStandalone = true;
+
 (window as unknown as { acquireVsCodeApi: () => unknown }).acquireVsCodeApi = () => ({
   postMessage: (message: unknown) => {
     if (connected) {

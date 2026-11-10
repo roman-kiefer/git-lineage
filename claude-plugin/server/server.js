@@ -259,7 +259,11 @@ var shellPath = (file) => {
   }
   return `'${file.replace(/\\/g, "/")}'`;
 };
+var isObjectId = (value) => /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value);
 var buildTodo = (steps, messageFile) => steps.map((step, index) => {
+  if (!isObjectId(step.hash) || !rebaseActions.includes(step.action)) {
+    throw new Error(`Not a valid rebase step: ${JSON.stringify(step.hash.slice(0, 80))} ${JSON.stringify(step.action)}`);
+  }
   if (step.action === "reword") {
     return `pick ${step.hash}
 exec git commit --amend --quiet -F ${shellPath(messageFile(index))}`;
@@ -592,7 +596,7 @@ var GitService = class {
   // Commit a branch points to on a remote, asked live (network). undefined = not there;
   // throws when the remote cannot be reached.
   async remoteBranchCommit(remote, branch) {
-    const output = await this.execGit(["ls-remote", remote, `refs/heads/${branch}`], await this.requireRepoRoot());
+    const output = await this.execGit(["ls-remote", "--", remote, `refs/heads/${branch}`], await this.requireRepoRoot());
     const line = output.split("\n").find((entry) => entry.trim().endsWith(`	refs/heads/${branch}`));
     return line?.split("	")[0]?.trim() || void 0;
   }
@@ -667,7 +671,7 @@ var GitService = class {
   // undefined = the remote has no such tag; throws when the remote cannot be reached.
   async remoteTagCommit(remote, name) {
     const ref = `refs/tags/${name}`;
-    const output = await this.execGit(["ls-remote", remote, ref, `${ref}^{}`], await this.requireRepoRoot());
+    const output = await this.execGit(["ls-remote", "--", remote, ref, `${ref}^{}`], await this.requireRepoRoot());
     const entries = new Map(
       output.split("\n").map((line) => line.trim().split(/\s+/)).filter((parts) => parts.length === 2).map(([hash, refName]) => [refName, hash])
     );
@@ -717,15 +721,21 @@ var GitService = class {
   }
   // Commits an interactive rebase onto base rewrites: base..HEAD without merges (git rebase -i
   // makes the branch linear), oldest first. At most `limit` + 1 are read to detect "too many".
+  // Commits are separated by NUL (-z), which a commit message cannot contain; the message is the
+  // rest after the third field separator, so separators inside it cannot forge fields. Every hash
+  // must be a full object name: these hashes end up in the rebase todo list.
   async rebaseCommits(base, limit) {
     const output = await this.execGit(
-      ["log", "--no-merges", "--topo-order", "--reverse", `--max-count=${limit + 1}`, "--format=%H%x1f%h%x1f%an%x1f%B%x1e", `${base}..HEAD`, "--"],
+      ["log", "-z", "--no-merges", "--topo-order", "--reverse", `--max-count=${limit + 1}`, "--format=%H%x1f%h%x1f%an%x1f%B", `${base}..HEAD`, "--"],
       await this.requireRepoRoot()
     );
-    return output.split("").map((entry) => entry.replace(/^\s+/, "")).filter(Boolean).map((entry) => {
-      const [hash, shortHash, authorName, message] = entry.split("");
-      const text = (message ?? "").trim();
-      return { hash, shortHash, authorName, message: text, subject: text.split("\n")[0] };
+    return output.split("\0").map((entry) => entry.replace(/^\s+/, "")).filter(Boolean).map((entry) => {
+      const [hash, shortHash, authorName, ...rest] = entry.split("");
+      if (!isObjectId(hash)) {
+        throw new GitError("Unexpected output of git log: the commits to rebase could not be read.");
+      }
+      const text = rest.join("").trim();
+      return { hash, shortHash, authorName: authorName ?? "", message: text, subject: text.split("\n")[0] };
     });
   }
   // Interactive rebase with a prepared todo list (steps oldest first): git gets the list from
@@ -2916,10 +2926,12 @@ var PAGE = `<!doctype html>
   </body>
 </html>`;
 var sameToken = (given, token) => {
-  if (!given || given.length !== token.length) {
+  if (!given) {
     return false;
   }
-  return (0, import_crypto.timingSafeEqual)(Buffer.from(given), Buffer.from(token));
+  const givenBytes = Buffer.from(given, "utf8");
+  const tokenBytes = Buffer.from(token, "utf8");
+  return givenBytes.length === tokenBytes.length && (0, import_crypto.timingSafeEqual)(givenBytes, tokenBytes);
 };
 var cookieToken = (request, name) => (request.headers.cookie ?? "").split(";").map((part) => part.trim().split("=")).find(([key]) => key === name)?.[1];
 var send = (response, status, body, type = "text/plain; charset=utf-8") => {
@@ -2964,8 +2976,9 @@ var startServer = async (options) => {
       response.setHeader("Set-Cookie", `${cookieName()}=${token}; HttpOnly; SameSite=Strict; Path=/`);
       response.setHeader(
         "Content-Security-Policy",
-        "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:"
+        "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'"
       );
+      response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
       send(response, 200, PAGE, "text/html; charset=utf-8");
       return;
     }
@@ -3070,7 +3083,7 @@ var startServer = async (options) => {
   };
 };
 var parseArgs = (argv) => {
-  const options = { repo: process.cwd(), port: 5179, requireToken: false, settings: {} };
+  const options = { repo: process.cwd(), port: 5179, requireToken: true, settings: {} };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--repo") {
@@ -3079,6 +3092,8 @@ var parseArgs = (argv) => {
       options.port = Number(argv[++index]);
     } else if (arg === "--require-token") {
       options.requireToken = true;
+    } else if (arg === "--no-require-token") {
+      options.requireToken = false;
     } else if (arg === "--set") {
       const [key, ...rest] = (argv[++index] ?? "").split("=");
       const raw = rest.join("=");

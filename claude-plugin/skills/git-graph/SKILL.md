@@ -19,7 +19,7 @@ Open Git Lineage for a repository and show it in the browser pane.
 
    Run it as a background command. It needs Node.js 18 or later; if `node` is missing, tell the user to install Node.js and stop.
    If the user asked for a setting, add `--set key=value` for it (keys as in the VS Code extension without the `gitLineage.` prefix: `pageSize`, `showRemoteBranches`, `autoRefresh`, `confirmDetachedCheckout`, `gitTimeoutSeconds`, `dateFormat` with `short`, `iso`, `local` or `relative`).
-3. Wait for its first output line, `Git Lineage: http://127.0.0.1:<port>/`, and take the URL from it. An error line instead (for example not a Git repository) goes to the user as it is.
+3. Wait for its first output line, `Git Lineage: http://127.0.0.1:<port>/?token=<token>`, and take the complete URL from it, including the token (without it the page answers "Token required"). An error line instead (for example not a Git repository) goes to the user as it is.
 4. Open that URL in the built-in browser pane (preview_start with the URL, or navigate). If there is no browser pane in this session, give the user the URL to open in their browser.
 5. Tell the user in one or two sentences that the graph is open, and that the server stops when this session ends or when they ask you to stop it.
 

@@ -3825,6 +3825,16 @@ ${tip}` : tip;
     update();
   };
 
+  // webview/src/graph/hostMessages.ts
+  var isHostMessage = (event) => !window.gitLineageStandalone || event.source === null;
+  var onHostMessage = (listener) => {
+    window.addEventListener("message", (event) => {
+      if (isHostMessage(event)) {
+        listener(event.data);
+      }
+    });
+  };
+
   // webview/src/graph/contextMenu.ts
   var CHECKING_DELAY_MS = 400;
   var describeTagInfo = (info) => {
@@ -4035,8 +4045,8 @@ ${tip}` : tip;
         }
       }
     };
-    window.addEventListener("message", (event) => {
-      const message = event.data;
+    onHostMessage((data) => {
+      const message = data;
       if (message?.type === "tagInfo" && message.payload) {
         showTagInfo(message.payload);
       }
@@ -4296,8 +4306,8 @@ ${tip}` : tip;
       renderEmptyCommitList,
       updateCommitDetails
     });
-    window.addEventListener("message", (event) => {
-      handleWebviewMessage(event.data);
+    onHostMessage((data) => {
+      handleWebviewMessage(data);
     });
   };
   var createBootstrapContext = (actions) => {
@@ -4354,8 +4364,8 @@ ${tip}` : tip;
       act: actions.operationAction,
       openConflict: actions.openConflict
     });
-    window.addEventListener("message", (event) => {
-      const message = event.data;
+    onHostMessage((data) => {
+      const message = data;
       if (formDialog.handle(message) || rebaseDialog.handle(message)) {
         return;
       }

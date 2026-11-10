@@ -43,11 +43,18 @@ export const shellPath = (file: string): string => {
   return `'${file.replace(/\\/g, '/')}'`;
 };
 
+// Full object name (SHA-1 or SHA-256), lowercase hex as git prints it with %H.
+export const isObjectId = (value: string): boolean => /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value);
+
 // Todo list text. Reword is a pick followed by an amend with the prepared message file, so no
-// editor is needed; messageFile(index) names that file.
+// editor is needed; messageFile(index) names that file. Only full object names go into the list:
+// anything else (a line break, say) could add todo lines such as exec.
 export const buildTodo = (steps: RebaseStep[], messageFile: (index: number) => string): string =>
   steps
     .map((step, index) => {
+      if (!isObjectId(step.hash) || !rebaseActions.includes(step.action)) {
+        throw new Error(`Not a valid rebase step: ${JSON.stringify(step.hash.slice(0, 80))} ${JSON.stringify(step.action)}`);
+      }
       if (step.action === 'reword') {
         return `pick ${step.hash}\nexec git commit --amend --quiet -F ${shellPath(messageFile(index))}`;
       }

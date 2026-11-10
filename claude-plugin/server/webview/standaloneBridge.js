@@ -141,6 +141,7 @@
       reportDisconnected();
     }
   };
+  window.gitLineageStandalone = true;
   window.acquireVsCodeApi = () => ({
     postMessage: (message) => {
       if (connected) {

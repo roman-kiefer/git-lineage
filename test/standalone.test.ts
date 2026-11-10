@@ -241,3 +241,40 @@ describe('Local server (Claude Code browser pane)', () => {
     expect((message.payload!.commits as unknown[]).length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('Local server with the start page token (default of the command line)', () => {
+  let server: RunningServer;
+  beforeAll(async () => {
+    server = await startServer({ repo, port: 0, requireToken: true });
+  });
+  afterAll(async () => {
+    await server.close();
+  });
+
+  it('prints the URL with the token; the start page wants it', async () => {
+    expect(server.url).toBe(`http://127.0.0.1:${server.port}/?token=${server.token}`);
+    const without = await request(server, { path: '/' });
+    expect(without.status).toBe(403);
+    expect(without.headers['set-cookie']).toBeUndefined();
+    expect((await request(server, { path: '/?token=wrong' })).status).toBe(403);
+    const start = await request(server, { path: `/?token=${server.token}` });
+    expect(start.status).toBe(200);
+    expect(start.headers['set-cookie']?.[0]).toMatch(new RegExp(`^ggn_token_${server.port}=${server.token};`));
+  });
+
+  it('no opener and no framing by other pages', async () => {
+    const start = await request(server, { path: `/?token=${server.token}` });
+    expect(start.headers['cross-origin-opener-policy']).toBe('same-origin');
+    expect(start.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  });
+
+  it('a token with non-ASCII characters is refused and does not stop the server', async () => {
+    // 64 characters like the real token, but 128 bytes in UTF-8.
+    const umlauts = encodeURIComponent('\u00e4'.repeat(64));
+    expect((await request(server, { path: `/?token=${umlauts}` })).status).toBe(403);
+    // Same through the cookie (sent as Latin-1 bytes).
+    const cookie = `ggn_token_${server.port}=${'\u00e4'.repeat(64)}`;
+    expect((await request(server, { path: '/dist/main.js', headers: { Cookie: cookie } })).status).toBe(403);
+    expect((await request(server, { path: `/?token=${server.token}` })).status).toBe(200);
+  });
+});

@@ -9,6 +9,7 @@ import { parseWorktreeList, samePath, type WorktreeInfo } from './worktrees';
 import {
   buildTodo,
   hasConflictMarkers,
+  isObjectId,
   readOperationState,
   shellPath,
   type OperationState,
@@ -571,19 +572,25 @@ export class GitService {
 
   // Commits an interactive rebase onto base rewrites: base..HEAD without merges (git rebase -i
   // makes the branch linear), oldest first. At most `limit` + 1 are read to detect "too many".
+  // Commits are separated by NUL (-z), which a commit message cannot contain; the message is the
+  // rest after the third field separator, so separators inside it cannot forge fields. Every hash
+  // must be a full object name: these hashes end up in the rebase todo list.
   async rebaseCommits(base: string, limit: number): Promise<RebaseCommit[]> {
     const output = await this.execGit(
-      ['log', '--no-merges', '--topo-order', '--reverse', `--max-count=${limit + 1}`, '--format=%H%x1f%h%x1f%an%x1f%B%x1e', `${base}..HEAD`, '--'],
+      ['log', '-z', '--no-merges', '--topo-order', '--reverse', `--max-count=${limit + 1}`, '--format=%H%x1f%h%x1f%an%x1f%B', `${base}..HEAD`, '--'],
       await this.requireRepoRoot(),
     );
     return output
-      .split('\u001e')
+      .split('\u0000')
       .map((entry) => entry.replace(/^\s+/, ''))
       .filter(Boolean)
       .map((entry) => {
-        const [hash, shortHash, authorName, message] = entry.split('\u001f');
-        const text = (message ?? '').trim();
-        return { hash, shortHash, authorName, message: text, subject: text.split('\n')[0] };
+        const [hash, shortHash, authorName, ...rest] = entry.split('\u001f');
+        if (!isObjectId(hash)) {
+          throw new GitError('Unexpected output of git log: the commits to rebase could not be read.');
+        }
+        const text = rest.join('\u001f').trim();
+        return { hash, shortHash, authorName: authorName ?? '', message: text, subject: text.split('\n')[0] };
       });
   }
 

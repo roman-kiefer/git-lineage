@@ -13,9 +13,11 @@ import { DEFAULT_SETTINGS, StandaloneHost } from './standaloneHost';
 // Security (see docs/claude-code.md):
 // - listens on 127.0.0.1 only;
 // - Host header must name 127.0.0.1/localhost with this port (DNS rebinding);
-// - a random token per start, kept in an HttpOnly SameSite=Strict cookie, is required for
-//   everything except the start page (with --require-token also for the start page: ?token=);
-// - POST only with JSON content type and our own Origin; no CORS headers at all.
+// - a random token per start is required for everything except the favicon: the start page
+//   wants it as ?token= (the URL printed at start) and hands it out as an HttpOnly
+//   SameSite=Strict cookie for the rest (--no-require-token: start page without ?token=);
+// - POST only with JSON content type and our own Origin; no CORS headers at all;
+// - no opener and no framing by other pages (COOP, frame-ancestors).
 
 export type ServerOptions = {
   repo: string;
@@ -66,12 +68,15 @@ const PAGE = `<!doctype html>
   </body>
 </html>`;
 
-// Constant-time comparison of two tokens.
+// Constant-time comparison of two tokens. Lengths are compared in bytes: a string of the same
+// length with non-ASCII characters is longer in UTF-8 and would make timingSafeEqual throw.
 const sameToken = (given: string | undefined, token: string): boolean => {
-  if (!given || given.length !== token.length) {
+  if (!given) {
     return false;
   }
-  return timingSafeEqual(Buffer.from(given), Buffer.from(token));
+  const givenBytes = Buffer.from(given, 'utf8');
+  const tokenBytes = Buffer.from(token, 'utf8');
+  return givenBytes.length === tokenBytes.length && timingSafeEqual(givenBytes, tokenBytes);
 };
 
 const cookieToken = (request: http.IncomingMessage, name: string): string | undefined =>
@@ -119,7 +124,7 @@ export const startServer = async (options: ServerOptions): Promise<RunningServer
       return;
     }
 
-    // Start page: hands out the token cookie (with --require-token only for ?token=<token>).
+    // Start page: hands out the token cookie, only for ?token=<token> (unless --no-require-token).
     if (request.method === 'GET' && url.pathname === '/') {
       if (options.requireToken && !sameToken(url.searchParams.get('token') ?? undefined, token)) {
         send(response, 403, 'Token required: open the URL printed by the server.');
@@ -128,8 +133,10 @@ export const startServer = async (options: ServerOptions): Promise<RunningServer
       response.setHeader('Set-Cookie', `${cookieName()}=${token}; HttpOnly; SameSite=Strict; Path=/`);
       response.setHeader(
         'Content-Security-Policy',
-        "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:",
+        "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'",
       );
+      // A page that opened this one keeps no reference to it (no forged window messages).
+      response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
       send(response, 200, PAGE, 'text/html; charset=utf-8');
       return;
     }
@@ -248,9 +255,9 @@ export const startServer = async (options: ServerOptions): Promise<RunningServer
 };
 
 // Command line: --repo <dir> (default: current folder), --port <n> (default 5179),
-// --require-token, --set key=value (settings such as dateFormat=iso).
+// --no-require-token (start page without ?token=), --set key=value (settings such as dateFormat=iso).
 const parseArgs = (argv: string[]): ServerOptions => {
-  const options: ServerOptions = { repo: process.cwd(), port: 5179, requireToken: false, settings: {} };
+  const options: ServerOptions = { repo: process.cwd(), port: 5179, requireToken: true, settings: {} };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--repo') {
@@ -258,7 +265,10 @@ const parseArgs = (argv: string[]): ServerOptions => {
     } else if (arg === '--port') {
       options.port = Number(argv[++index]);
     } else if (arg === '--require-token') {
+      // Now the default; still accepted for existing command lines.
       options.requireToken = true;
+    } else if (arg === '--no-require-token') {
+      options.requireToken = false;
     } else if (arg === '--set') {
       const [key, ...rest] = (argv[++index] ?? '').split('=');
       const raw = rest.join('=');

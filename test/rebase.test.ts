@@ -84,11 +84,20 @@ describe('Rebase view: checks and todo list', () => {
   });
 
   it('reword becomes pick + amend with a message file', () => {
+    const [aaa, bbb, ccc] = ['a', 'b', 'c'].map((char) => char.repeat(40));
     const todo = buildTodo(
-      [{ hash: 'aaa', action: 'reword', message: 'x' }, { hash: 'bbb', action: 'squash' }, { hash: 'ccc', action: 'drop' }],
+      [{ hash: aaa, action: 'reword', message: 'x' }, { hash: bbb, action: 'squash' }, { hash: ccc, action: 'drop' }],
       (index) => `C:\\tmp\\msg-${index}.txt`,
     );
-    expect(todo).toBe("pick aaa\nexec git commit --amend --quiet -F 'C:/tmp/msg-0.txt'\nsquash bbb\ndrop ccc\n");
+    expect(todo).toBe(`pick ${aaa}\nexec git commit --amend --quiet -F 'C:/tmp/msg-0.txt'\nsquash ${bbb}\ndrop ${ccc}\n`);
+  });
+
+  it('only full object names and known actions go into the todo list', () => {
+    const file = (index: number): string => `/tmp/msg-${index}.txt`;
+    expect(() => buildTodo([{ hash: `${'a'.repeat(40)}\nexec touch pwned`, action: 'pick' }], file)).toThrow(/valid rebase step/);
+    expect(() => buildTodo([{ hash: 'abc1234', action: 'pick' }], file)).toThrow(/valid rebase step/);
+    expect(() => buildTodo([{ hash: 'a'.repeat(40), action: 'exec' as RebaseStep['action'] }], file)).toThrow(/valid rebase step/);
+    expect(buildTodo([{ hash: 'f'.repeat(64), action: 'pick' }], file)).toBe(`pick ${'f'.repeat(64)}\n`);
   });
 
   it('detects conflict markers', () => {
@@ -101,6 +110,22 @@ describe('Interactive rebase in a repository', () => {
   it('offers the commits of the branch (oldest first)', async () => {
     const commits = await service.rebaseCommits('main', 100);
     expect(commits.map((entry) => entry.subject)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('separator characters in a commit message cannot forge commits or hashes', async () => {
+    const a = git('rev-parse', 'HEAD~3');
+    // The old record and field separators, shaped like an extra commit whose "hash" adds an exec line.
+    const forged = `x\n\u001e${a}\nexec touch pwned\u001fab\u001fev\u001fforged\u001e`;
+    fs.writeFileSync(path.join(repo, 'msg.txt'), forged);
+    write('x.txt', 'x\n');
+    git('add', 'x.txt');
+    git('commit', '-q', '--cleanup=verbatim', '-F', 'msg.txt');
+    fs.rmSync(path.join(repo, 'msg.txt'));
+    const commits = await service.rebaseCommits('main', 100);
+    expect(commits.map((entry) => entry.subject)).toEqual(['a', 'b', 'c', 'd', 'x']);
+    expect(commits.every((entry) => /^[0-9a-f]{40}$/.test(entry.hash))).toBe(true);
+    expect(commits[4].message).toBe(forged.trim());
+    expect(commits[4].authorName).toBe('t');
   });
 
   it('reword, squash, fixup and drop in one run, without an editor', async () => {

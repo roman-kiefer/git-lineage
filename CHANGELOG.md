@@ -3,6 +3,15 @@
 All notable changes to Git Lineage are listed here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+
+- Local server (Claude Code plugin): the start page now requires the token from the printed URL by default, so other programs and user accounts on the same computer cannot open the graph. `--no-require-token` restores the old behavior.
+- Local server: a malformed token (non-ASCII characters) no longer stops the server.
+- Local server: other pages can no longer embed the graph or post messages into a window they opened with it.
+- Interactive rebase: commit messages with control characters can no longer add lines to the rebase todo list.
+
 ## [0.1.0] - 2026-11-09
 
 First public preview, for VS Code and as a Claude Code plugin.
