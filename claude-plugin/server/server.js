@@ -1503,7 +1503,8 @@ var GraphController = class {
       throw new GitError(`Worktree ${name} is the folder this graph was opened for; it cannot be removed here.`);
     }
     const changes = await this.gitService.getWorkingTreeChangesAt(target.path).catch(() => []);
-    const branchText = target.branch ? `Branch ${target.branch} is kept.` : "Its detached HEAD is left behind.";
+    const detachedAt = target.head ? ` (detached at ${target.head.slice(0, 7)})` : "";
+    const branchText = target.branch ? `Branch ${target.branch} is kept.` : `No branch is checked out there${detachedAt}; the commit stays in the repository.`;
     const values = await this.showForm(
       {
         title: `Remove worktree ${name}?`,
