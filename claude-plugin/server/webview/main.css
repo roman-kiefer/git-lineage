@@ -470,8 +470,10 @@ body.vscode-high-contrast .ref-chip__icon {
 .ref-chip--head,
 .ref-chip--stash {
 }
-.ref-chip--current {
-  font-weight: 600;
+.ref-chip--current:not(.ref-chip--head) .ref-chip__segment--label,
+.ref-list:not(:has(.ref-chip--current:not(.ref-chip--head))) .ref-chip--head .ref-chip__segment--label {
+  font-size: 12px;
+  font-weight: 700;
 }
 .commit.selected .commit-col {
   color: var(--vscode-list-activeSelectionForeground);

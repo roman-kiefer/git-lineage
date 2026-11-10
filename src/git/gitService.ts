@@ -192,7 +192,8 @@ export class GitService {
       String(skip),
       '--graph',
       '--date=iso-strict',
-      '--decorate=short',
+      // Full ref names: only the prefix tells a local "feature/x" from a remote "origin/x".
+      '--decorate=full',
       `--pretty=format:${format}`,
     ];
     if (sortMode === 'topo') {

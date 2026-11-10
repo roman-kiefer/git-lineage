@@ -42,6 +42,24 @@ type ParsedRef = {
   isCurrent?: boolean;
 };
 
+// Classifies one decoration. With `--decorate=full` the prefix decides the type; short names
+// (older fixtures) fall back to "contains a slash = remote", which misreads local "feature/x".
+function parseRefName(entry: string): ParsedRef {
+  if (entry.startsWith('refs/heads/')) {
+    return { name: entry.slice('refs/heads/'.length), type: 'local' };
+  }
+  if (entry.startsWith('refs/remotes/')) {
+    return { name: entry.slice('refs/remotes/'.length), type: 'remote' };
+  }
+  if (entry.startsWith('refs/tags/')) {
+    return { name: entry.slice('refs/tags/'.length), type: 'tag' };
+  }
+  if (entry.startsWith('refs/')) {
+    return { name: entry.slice('refs/'.length), type: 'other' };
+  }
+  return { name: entry, type: entry.includes('/') ? 'remote' : 'local' };
+}
+
 function parseRefs(rawDecorations: string): ParsedRef[] {
   if (!rawDecorations.trim()) {
     return [];
@@ -53,7 +71,7 @@ function parseRefs(rawDecorations: string): ParsedRef[] {
     .filter((entry) => entry.length > 0)
     .flatMap((entry): ParsedRef[] => {
       if (entry.startsWith('HEAD -> ')) {
-        const branchName = entry.slice('HEAD -> '.length).trim();
+        const branchName = entry.slice('HEAD -> '.length).trim().replace(/^refs\/heads\//, '');
         if (!branchName) {
           return [{ name: 'HEAD', type: 'head', isCurrent: true }];
         }
@@ -68,7 +86,7 @@ function parseRefs(rawDecorations: string): ParsedRef[] {
       }
 
       if (entry.startsWith('tag: ')) {
-        const tagName = entry.slice('tag: '.length).trim();
+        const tagName = entry.slice('tag: '.length).trim().replace(/^refs\/tags\//, '');
         return tagName ? [{ name: tagName, type: 'tag' }] : [];
       }
 
@@ -76,11 +94,7 @@ function parseRefs(rawDecorations: string): ParsedRef[] {
         return [{ name: entry.replace(/^refs\//, ''), type: 'stash' }];
       }
 
-      if (entry.includes('/')) {
-        return [{ name: entry, type: 'remote' }];
-      }
-
-      return [{ name: entry, type: 'local' }];
+      return [parseRefName(entry)];
     });
 
   const seen = new Set<string>();

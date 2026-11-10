@@ -79,13 +79,28 @@ function parsePorcelainStatus(raw) {
 var FIELD_SEPARATOR = "";
 var COMMIT_START = "";
 var COMMIT_END = "";
+function parseRefName(entry) {
+  if (entry.startsWith("refs/heads/")) {
+    return { name: entry.slice("refs/heads/".length), type: "local" };
+  }
+  if (entry.startsWith("refs/remotes/")) {
+    return { name: entry.slice("refs/remotes/".length), type: "remote" };
+  }
+  if (entry.startsWith("refs/tags/")) {
+    return { name: entry.slice("refs/tags/".length), type: "tag" };
+  }
+  if (entry.startsWith("refs/")) {
+    return { name: entry.slice("refs/".length), type: "other" };
+  }
+  return { name: entry, type: entry.includes("/") ? "remote" : "local" };
+}
 function parseRefs(rawDecorations) {
   if (!rawDecorations.trim()) {
     return [];
   }
   const refs = rawDecorations.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0).flatMap((entry) => {
     if (entry.startsWith("HEAD -> ")) {
-      const branchName = entry.slice("HEAD -> ".length).trim();
+      const branchName = entry.slice("HEAD -> ".length).trim().replace(/^refs\/heads\//, "");
       if (!branchName) {
         return [{ name: "HEAD", type: "head", isCurrent: true }];
       }
@@ -98,16 +113,13 @@ function parseRefs(rawDecorations) {
       return [{ name: "HEAD", type: "head", isCurrent: true }];
     }
     if (entry.startsWith("tag: ")) {
-      const tagName = entry.slice("tag: ".length).trim();
+      const tagName = entry.slice("tag: ".length).trim().replace(/^refs\/tags\//, "");
       return tagName ? [{ name: tagName, type: "tag" }] : [];
     }
     if (entry.startsWith("stash@{") || entry.startsWith("refs/stash")) {
       return [{ name: entry.replace(/^refs\//, ""), type: "stash" }];
     }
-    if (entry.includes("/")) {
-      return [{ name: entry, type: "remote" }];
-    }
-    return [{ name: entry, type: "local" }];
+    return [parseRefName(entry)];
   });
   const seen = /* @__PURE__ */ new Set();
   return refs.filter((ref) => {
@@ -405,7 +417,8 @@ var GitService = class {
       String(skip),
       "--graph",
       "--date=iso-strict",
-      "--decorate=short",
+      // Full ref names: only the prefix tells a local "feature/x" from a remote "origin/x".
+      "--decorate=full",
       `--pretty=format:${format}`
     ];
     if (sortMode === "topo") {
