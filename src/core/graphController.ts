@@ -1786,10 +1786,13 @@ export class GraphController {
     if (!folder) {
       return;
     }
-    // Uncommitted row: left side is that worktree's HEAD, right side the file on disk.
-    const ref = uncommitted ? 'HEAD' : hash;
-    const title = uncommitted ? `${filePath} (Working Tree)` : `${filePath} (${hash.slice(0, 7)})`;
-    await this.host.openDiff(folder, filePath, ref, title);
+    // Uncommitted row: that worktree's HEAD against the file on disk.
+    // Commit row: the file in the first parent against the file in the commit.
+    if (uncommitted) {
+      await this.host.openDiff(folder, filePath, 'HEAD', undefined, `${filePath} (Working Tree)`);
+      return;
+    }
+    await this.host.openDiff(folder, filePath, `${hash}~1`, hash, `${filePath} (${hash.slice(0, 7)})`);
   }
 
   private async handleOpenFile(hash: string, filePath: string): Promise<void> {

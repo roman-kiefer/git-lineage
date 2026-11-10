@@ -49,8 +49,8 @@ export interface GraphHost {
   confirm(options: ConfirmOptions): Promise<string | undefined>;
   prompt(options: PromptOptions): Promise<string | undefined>;
   copy(text: string): Promise<void>;
-  // ref: commit to compare with the working tree file ("HEAD" for uncommitted changes).
-  openDiff(repoRoot: string, filePath: string, ref: string, title: string): Promise<void>;
+  // leftRef/rightRef: commits to compare; rightRef undefined: the file as it is on disk.
+  openDiff(repoRoot: string, filePath: string, leftRef: string, rightRef: string | undefined, title: string): Promise<void>;
   // ref undefined: the file as it is on disk.
   openFile(repoRoot: string, filePath: string, ref: string | undefined): Promise<void>;
   openTerminal(cwd: string, name: string, command: string): Promise<void>;

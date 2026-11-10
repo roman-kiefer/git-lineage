@@ -127,9 +127,16 @@ export class GitGraphWebviewProvider implements GraphHost {
     await vscode.env.clipboard.writeText(text);
   }
 
-  async openDiff(repoRoot: string, filePath: string, ref: string, title: string): Promise<void> {
+  async openDiff(
+    repoRoot: string,
+    filePath: string,
+    leftRef: string,
+    rightRef: string | undefined,
+    title: string,
+  ): Promise<void> {
     const absPath = vscode.Uri.joinPath(vscode.Uri.file(repoRoot), filePath);
-    await vscode.commands.executeCommand('vscode.diff', this.gitUri(absPath, ref), absPath, title);
+    const right = rightRef ? this.gitUri(absPath, rightRef) : absPath;
+    await vscode.commands.executeCommand('vscode.diff', this.gitUri(absPath, leftRef), right, title);
   }
 
   async openFile(repoRoot: string, filePath: string, ref: string | undefined): Promise<void> {
@@ -172,9 +179,12 @@ export class GitGraphWebviewProvider implements GraphHost {
     return { dispose: () => disposables.forEach((disposable) => disposable.dispose()) };
   }
 
-  // File content at a commit, served by VS Code's Git extension.
+  // File content at a commit, served by VS Code's Git extension. It reads the file path
+  // from the query, so it must be there; the URI keeps the file URI's path (a Windows
+  // path parsed into a URI string would lose its drive letter and backslashes).
+  // A file missing at that ref (added or deleted in the commit) shows as empty.
   private gitUri(absPath: vscode.Uri, ref: string): vscode.Uri {
-    return vscode.Uri.parse(`git:${absPath.fsPath}?${encodeURIComponent(JSON.stringify({ ref }))}`);
+    return absPath.with({ scheme: 'git', query: JSON.stringify({ path: absPath.fsPath, ref }) });
   }
 
   private getHtml(): string {
