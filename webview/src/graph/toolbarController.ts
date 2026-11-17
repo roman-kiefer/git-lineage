@@ -8,6 +8,7 @@ type BranchFilterOption = {
 
 type ToolbarControllerOptions = {
   onRefresh: () => void;
+  onOpenSettings: () => void;
   onUpdateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean, showOtherRefs: boolean) => void;
   onLoadMore: (cursor: string | undefined) => void;
   onSelectRepo: (repoRoot: string) => void;
@@ -206,6 +207,10 @@ export const createToolbarController = (options: ToolbarControllerOptions): Tool
     setRefreshing(true);
     options.onUpdateFilters(branchSelect.value, remoteToggle.checked, forkToggle?.checked ?? true, otherRefsToggle?.checked ?? false);
   };
+
+  document.querySelector<HTMLButtonElement>('[data-action="settings"]')?.addEventListener('click', () => {
+    options.onOpenSettings();
+  });
 
   refreshButton?.addEventListener('click', () => {
     setRefreshing(true);

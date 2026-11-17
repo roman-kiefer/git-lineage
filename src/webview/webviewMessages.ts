@@ -6,6 +6,11 @@ export type WebviewRefreshMessage = {
   type: 'refresh';
 };
 
+// Gear in the toolbar.
+export type WebviewOpenSettingsMessage = {
+  type: 'openSettings';
+};
+
 export type WebviewUpdateFiltersMessage = {
   type: 'updateFilters';
   payload: {
@@ -325,6 +330,7 @@ export type WebviewMessage =
   | WebviewWorktreeActionMessage
   | WebviewReadyMessage
   | WebviewRefreshMessage
+  | WebviewOpenSettingsMessage
   | WebviewUpdateFiltersMessage
   | WebviewLoadMoreMessage
   | WebviewSelectCommitMessage

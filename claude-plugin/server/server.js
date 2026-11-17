@@ -1226,6 +1226,117 @@ var GitHubAvatars = class {
   }
 };
 
+// src/core/settingsForm.ts
+var SETTING_DEFAULTS = {
+  dateFormat: "short",
+  authorDisplay: "name",
+  avatarSource: "initials",
+  pageSize: 120,
+  autoRefresh: true,
+  confirmDetachedCheckout: true,
+  gitTimeoutSeconds: 30,
+  showRemoteBranches: true,
+  showForkRemotes: true,
+  showOtherRefs: false
+};
+var PAGE_SIZE = { min: 20, max: 1e3 };
+var MIN_TIMEOUT = 5;
+var readSettings = (config) => {
+  const entries = Object.entries(SETTING_DEFAULTS).map(([key, fallback]) => [key, config(key, fallback)]);
+  return Object.fromEntries(entries);
+};
+var settingsForm = (current) => ({
+  title: "Git Lineage settings",
+  detail: "Saved for the next start too.",
+  submitLabel: "Save",
+  fields: [
+    {
+      id: "dateFormat",
+      kind: "select",
+      label: "Date column",
+      value: current.dateFormat,
+      options: [
+        { value: "short", label: "Short (6 Nov 2026 13:41, your time zone)" },
+        { value: "iso", label: "ISO (2026-09-30 18:20, the author's time)" },
+        { value: "local", label: "Your regional format" },
+        { value: "relative", label: "Relative (3 days ago)" }
+      ]
+    },
+    {
+      id: "authorDisplay",
+      kind: "select",
+      label: "Author column",
+      value: current.authorDisplay,
+      options: [
+        { value: "name", label: "Name" },
+        { value: "avatarName", label: "Avatar and name" },
+        { value: "avatar", label: "Avatar only" }
+      ]
+    },
+    {
+      id: "avatarSource",
+      kind: "select",
+      label: "Avatars",
+      value: current.avatarSource,
+      info: "GitHub: the authors' GitHub pictures for repositories on github.com, initials when there is none. Asks GitHub once per author, signed in through GITHUB_TOKEN, GH_TOKEN or the GitHub CLI if available.",
+      options: [
+        { value: "initials", label: "Initials (nothing is sent anywhere)" },
+        { value: "github", label: "GitHub pictures" }
+      ]
+    },
+    { id: "showRemoteBranches", kind: "checkbox", label: "Show remote branches", value: current.showRemoteBranches },
+    { id: "showForkRemotes", kind: "checkbox", label: "Show branches of forks", value: current.showForkRemotes, info: "Remotes besides origin. The Forks checkbox only appears when there are such remotes." },
+    { id: "showOtherRefs", kind: "checkbox", label: "Show other refs", value: current.showOtherRefs, info: "Refs outside branches, remotes and tags, e.g. snapshots of tools such as Codex under refs/codex/." },
+    { id: "autoRefresh", kind: "checkbox", label: "Refresh automatically on repository changes", value: current.autoRefresh },
+    { id: "confirmDetachedCheckout", kind: "checkbox", label: "Ask before a detached checkout", value: current.confirmDetachedCheckout },
+    { id: "pageSize", kind: "text", label: "Commits per page", value: String(current.pageSize), info: `${PAGE_SIZE.min} to ${PAGE_SIZE.max}.` },
+    { id: "gitTimeoutSeconds", kind: "text", label: "Git timeout (seconds)", value: String(current.gitTimeoutSeconds), info: `At least ${MIN_TIMEOUT}.` }
+  ]
+});
+var whole = (text) => /^\d+$/.test(text.trim()) ? Number(text.trim()) : void 0;
+var settingsProblem = (values) => {
+  const pageSize = whole(formText(values, "pageSize"));
+  if (pageSize === void 0 || pageSize < PAGE_SIZE.min || pageSize > PAGE_SIZE.max) {
+    return { field: "pageSize", message: `Please enter a number from ${PAGE_SIZE.min} to ${PAGE_SIZE.max}.` };
+  }
+  const timeout = whole(formText(values, "gitTimeoutSeconds"));
+  if (timeout === void 0 || timeout < MIN_TIMEOUT) {
+    return { field: "gitTimeoutSeconds", message: `Please enter a number of at least ${MIN_TIMEOUT}.` };
+  }
+  return void 0;
+};
+var settingsFromForm = (values, current) => {
+  const choice = (id, allowed) => {
+    const value = formText(values, id);
+    return allowed.includes(value) ? value : current[id];
+  };
+  return {
+    dateFormat: choice("dateFormat", ["short", "iso", "local", "relative"]),
+    authorDisplay: choice("authorDisplay", ["name", "avatarName", "avatar"]),
+    avatarSource: choice("avatarSource", ["initials", "github"]),
+    pageSize: whole(formText(values, "pageSize")) ?? current.pageSize,
+    gitTimeoutSeconds: whole(formText(values, "gitTimeoutSeconds")) ?? current.gitTimeoutSeconds,
+    autoRefresh: formFlag(values, "autoRefresh"),
+    confirmDetachedCheckout: formFlag(values, "confirmDetachedCheckout"),
+    showRemoteBranches: formFlag(values, "showRemoteBranches"),
+    showForkRemotes: formFlag(values, "showForkRemotes"),
+    showOtherRefs: formFlag(values, "showOtherRefs")
+  };
+};
+var sanitizeSettings = (raw) => {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+  const result = {};
+  Object.entries(SETTING_DEFAULTS).forEach(([key, fallback]) => {
+    const value = raw[key];
+    if (typeof value === typeof fallback) {
+      result[key] = value;
+    }
+  });
+  return result;
+};
+
 // src/core/graphController.ts
 var MAX_REBASE_COMMITS = 200;
 var splitRemoteRef = (remoteRef, remotes) => {
@@ -1314,6 +1425,9 @@ var GraphController = class {
         return;
       case "refresh":
         await this.reload("commits", "Refreshed.");
+        return;
+      case "openSettings":
+        await this.handleOpenSettings();
         return;
       case "updateFilters":
         this.showRemoteBranches = message.payload.showRemoteBranches;
@@ -2845,6 +2959,29 @@ var GraphController = class {
     });
     return rows;
   }
+  // Gear in the toolbar: VS Code's own settings; in the browser pane a dialog that saves the
+  // values (the host keeps them for the next start) and applies them right away.
+  async handleOpenSettings() {
+    if (this.host.openSettings) {
+      await this.host.openSettings();
+      return;
+    }
+    const current = readSettings((key, fallback) => this.host.config(key, fallback));
+    const values = await this.showForm(settingsForm(current), async (entered) => settingsProblem(entered));
+    if (!values) {
+      return;
+    }
+    const next = settingsFromForm(values, current);
+    const changed = Object.keys(next).filter((key) => next[key] !== current[key]);
+    for (const key of changed) {
+      await this.host.updateConfig(key, next[key]);
+    }
+    this.showRemoteBranches = next.showRemoteBranches;
+    this.showForkRemotes = next.showForkRemotes;
+    this.showOtherRefs = next.showOtherRefs;
+    this.watchedRepoRoot = void 0;
+    await this.reload("commits", changed.length > 0 ? "Settings saved." : "Settings unchanged.", this.reloadLimit());
+  }
   // GitHub avatars only when the author column shows avatars and GitHub is their chosen source.
   useGitHubAvatars() {
     return this.host.config("authorDisplay", "name") !== "name" && this.host.config("avatarSource", "initials") === "github";
@@ -3081,6 +3218,9 @@ var buildGraphCommits = (displayCommits) => {
   return { graphCommits, maxLanes: Math.max(1, maxLaneIndex + 1) };
 };
 
+// src/standalone/server.ts
+var os2 = __toESM(require("os"));
+
 // src/standalone/standaloneHost.ts
 var import_child_process3 = require("child_process");
 var fs4 = __toESM(require("fs"));
@@ -3094,9 +3234,18 @@ var DEFAULT_SETTINGS = {
   gitTimeoutSeconds: 30,
   dateFormat: "short",
   authorDisplay: "name",
-  avatarSource: "initials"
+  avatarSource: "initials",
+  confirmDetachedCheckout: true
 };
 var WORKING_TREE_POLL_MS = 3e3;
+var readSettingsFile = (file) => {
+  try {
+    const parsed = JSON.parse(fs4.readFileSync(file, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
 var ghCliToken = (run2 = import_child_process3.execFile) => new Promise((resolve6) => {
   try {
     run2("gh", ["auth", "token", "--hostname", "github.com"], { timeout: 5e3, windowsHide: true }, (error, stdout) => {
@@ -3109,9 +3258,10 @@ var ghCliToken = (run2 = import_child_process3.execFile) => new Promise((resolve
 });
 var MAX_VIEW_BYTES = 2 * 1024 * 1024;
 var StandaloneHost = class {
-  constructor(settings = DEFAULT_SETTINGS, fileAtRef = async () => "") {
+  constructor(settings = DEFAULT_SETTINGS, fileAtRef = async () => "", settingsFile) {
     this.settings = settings;
     this.fileAtRef = fileAtRef;
+    this.settingsFile = settingsFile;
     this.clients = /* @__PURE__ */ new Set();
     this.pending = /* @__PURE__ */ new Map();
     this.nextRequestId = 1;
@@ -3153,9 +3303,18 @@ var StandaloneHost = class {
   config(key, fallback) {
     return key in this.settings ? this.settings[key] : fallback;
   }
-  // Kept in memory: the server has no settings file.
+  // In memory, and in the settings file (if any) so the next start keeps it. Other keys in the
+  // file stay as they are.
   async updateConfig(key, value) {
     this.settings[key] = value;
+    if (!this.settingsFile) {
+      return;
+    }
+    const saved = readSettingsFile(this.settingsFile);
+    saved[key] = value;
+    await fs4.promises.mkdir(path5.dirname(this.settingsFile), { recursive: true });
+    await fs4.promises.writeFile(this.settingsFile, `${JSON.stringify(saved, null, 2)}
+`, "utf8");
   }
   isOpen() {
     return this.clients.size > 0;
@@ -3336,12 +3495,13 @@ var startServer = async (options) => {
   if (!repoRoot) {
     throw new Error(`${options.repo} is not inside a Git repository.`);
   }
-  const settings = { ...DEFAULT_SETTINGS, ...options.settings };
+  const saved = options.settingsFile ? sanitizeSettings(readSettingsFile(options.settingsFile)) : {};
+  const settings = { ...DEFAULT_SETTINGS, ...saved, ...options.settings };
   const gitService = new GitService({
     locateRepositories: async () => [repoRoot],
     timeoutMs: () => Number(settings.gitTimeoutSeconds) * 1e3
   });
-  const host = new StandaloneHost(settings, (root, ref, filePath) => gitService.fileAtRef(root, ref, filePath));
+  const host = new StandaloneHost(settings, (root, ref, filePath) => gitService.fileAtRef(root, ref, filePath), options.settingsFile);
   const controller = new GraphController(host, gitService);
   host.onFirstClient = () => controller.onVisible();
   host.onNoClients = () => controller.onClosed();
@@ -3471,7 +3631,13 @@ var startServer = async (options) => {
   };
 };
 var parseArgs = (argv) => {
-  const options = { repo: process.cwd(), port: 5179, requireToken: true, settings: {} };
+  const options = {
+    repo: process.cwd(),
+    port: 5179,
+    requireToken: true,
+    settings: {},
+    settingsFile: path6.join(os2.homedir(), ".git-lineage", "settings.json")
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--repo") {

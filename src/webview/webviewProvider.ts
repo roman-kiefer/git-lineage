@@ -165,6 +165,11 @@ export class GitGraphWebviewProvider implements GraphHost {
     await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(folder), { forceNewWindow: true });
   }
 
+  // Gear in the toolbar: VS Code's settings, filtered to this extension.
+  async openSettings(): Promise<void> {
+    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:roman-kiefer.git-lineage');
+  }
+
   // VS Code's GitHub sign-in, if the user is signed in already (silent: never asks).
   async githubToken(): Promise<string | undefined> {
     const session = await vscode.authentication.getSession('github', ['repo'], { silent: true }).then(

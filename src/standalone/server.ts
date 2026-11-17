@@ -5,7 +5,9 @@ import * as path from 'path';
 import { GraphController } from '../core/graphController';
 import { GitService } from '../git/gitService';
 import type { WebviewMessage } from '../webview/webviewMessages';
-import { DEFAULT_SETTINGS, StandaloneHost } from './standaloneHost';
+import * as os from 'os';
+import { sanitizeSettings } from '../core/settingsForm';
+import { DEFAULT_SETTINGS, readSettingsFile, StandaloneHost } from './standaloneHost';
 
 // Local web server that shows the Git Lineage webview in a browser, e.g. the Claude Code
 // browser pane. Same webview bundle and graph logic as the VS Code extension.
@@ -24,6 +26,8 @@ export type ServerOptions = {
   port: number;
   requireToken: boolean;
   settings?: Record<string, unknown>;
+  // Saved settings of the gear dialog (default for the command line: ~/.git-lineage/settings.json).
+  settingsFile?: string;
 };
 
 export type RunningServer = {
@@ -100,12 +104,14 @@ export const startServer = async (options: ServerOptions): Promise<RunningServer
   if (!repoRoot) {
     throw new Error(`${options.repo} is not inside a Git repository.`);
   }
-  const settings = { ...DEFAULT_SETTINGS, ...options.settings };
+  // Defaults, then the saved settings, then --set (wins for this start).
+  const saved = options.settingsFile ? sanitizeSettings(readSettingsFile(options.settingsFile)) : {};
+  const settings: Record<string, unknown> = { ...DEFAULT_SETTINGS, ...saved, ...options.settings };
   const gitService = new GitService({
     locateRepositories: async () => [repoRoot],
     timeoutMs: () => Number(settings.gitTimeoutSeconds) * 1000,
   });
-  const host = new StandaloneHost(settings, (root, ref, filePath) => gitService.fileAtRef(root, ref, filePath));
+  const host = new StandaloneHost(settings, (root, ref, filePath) => gitService.fileAtRef(root, ref, filePath), options.settingsFile);
   const controller = new GraphController(host, gitService);
   host.onFirstClient = () => controller.onVisible();
   host.onNoClients = () => controller.onClosed();
@@ -257,7 +263,13 @@ export const startServer = async (options: ServerOptions): Promise<RunningServer
 // Command line: --repo <dir> (default: current folder), --port <n> (default 5179),
 // --no-require-token (start page without ?token=), --set key=value (settings such as dateFormat=iso).
 const parseArgs = (argv: string[]): ServerOptions => {
-  const options: ServerOptions = { repo: process.cwd(), port: 5179, requireToken: true, settings: {} };
+  const options: ServerOptions = {
+    repo: process.cwd(),
+    port: 5179,
+    requireToken: true,
+    settings: {},
+    settingsFile: path.join(os.homedir(), '.git-lineage', 'settings.json'),
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--repo') {

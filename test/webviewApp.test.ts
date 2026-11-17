@@ -167,6 +167,14 @@ describe('Webview app', () => {
     expect(authorHue('Roman Kiefer')).not.toBe(authorHue('Tekenochichi'));
   });
 
+  it('gear in the toolbar asks for the settings', () => {
+    const gear = document.querySelector<HTMLButtonElement>('[data-action="settings"]')!;
+    expect(gear.getAttribute('aria-label')).toBe('Settings');
+    sent.length = 0;
+    gear.click();
+    expect(sent).toEqual([{ type: 'openSettings' }]);
+  });
+
   it('Load more only while there are more commits (no "No more commits")', () => {
     const footer = document.querySelector<HTMLElement>('.list-footer')!;
     expect(footer.hidden).toBe(true);

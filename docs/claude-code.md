@@ -41,7 +41,7 @@ Claude opens the current working directory of the session (the repository or wor
 
 ### Settings
 
-The settings of the VS Code extension apply with their defaults. To change one, ask Claude when opening the graph, for example "open the git graph with ISO dates". Claude passes it to the server as `--set dateFormat=iso` (the setting name without the `gitLineage.` prefix). Available: `pageSize`, `showRemoteBranches`, `showForkRemotes`, `showOtherRefs`, `autoRefresh`, `confirmDetachedCheckout`, `gitTimeoutSeconds`, `dateFormat`, `authorDisplay`, `avatarSource`; see the [README](../README.md#settings).
+The settings of the VS Code extension apply with their defaults. The gear in the toolbar opens a dialog with all of them; it applies the changes right away and saves them in `~/.git-lineage/settings.json` for the next start. A value can also be set for one start only: ask Claude when opening the graph, for example "open the git graph with ISO dates". Claude passes it to the server as `--set dateFormat=iso` (the setting name without the `gitLineage.` prefix); it wins over the saved value. Available: `pageSize`, `showRemoteBranches`, `showForkRemotes`, `showOtherRefs`, `autoRefresh`, `confirmDetachedCheckout`, `gitTimeoutSeconds`, `dateFormat`, `authorDisplay`, `avatarSource`; see the [README](../README.md#settings).
 
 ## What works only in VS Code
 

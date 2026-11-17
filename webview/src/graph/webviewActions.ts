@@ -20,6 +20,9 @@ type OutgoingWebviewMessage =
       type: 'refresh';
     }
   | {
+      type: 'openSettings';
+    }
+  | {
       type: 'updateFilters';
       payload: {
         selectedBranch: string;
@@ -96,6 +99,8 @@ type VsCodePostMessageApi = {
 export type WebviewActions = {
   ready: () => void;
   refresh: () => void;
+  // Gear: VS Code settings or the settings dialog of the browser pane.
+  openSettings: () => void;
   updateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean, showOtherRefs: boolean) => void;
   loadMore: (cursor?: string) => void;
   selectCommit: (hash: string) => void;
@@ -147,6 +152,9 @@ export const createWebviewActions = (vscode: VsCodePostMessageApi): WebviewActio
     },
     refresh: () => {
       send({ type: 'refresh' });
+    },
+    openSettings: () => {
+      send({ type: 'openSettings' });
     },
     updateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean, showOtherRefs: boolean) => {
       send({

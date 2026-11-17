@@ -86,6 +86,9 @@ const setupToolbar = (actions: WebviewActions): ToolbarController =>
     onRefresh: () => {
       actions.refresh();
     },
+    onOpenSettings: () => {
+      actions.openSettings();
+    },
     onUpdateFilters: (selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs) => {
       actions.updateFilters(selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs);
     },

@@ -2589,6 +2589,9 @@ ${tip}` : tip;
       setRefreshing(true);
       options.onUpdateFilters(branchSelect.value, remoteToggle.checked, forkToggle?.checked ?? true, otherRefsToggle?.checked ?? false);
     };
+    document.querySelector('[data-action="settings"]')?.addEventListener("click", () => {
+      options.onOpenSettings();
+    });
     refreshButton?.addEventListener("click", () => {
       setRefreshing(true);
       options.onRefresh();
@@ -3955,6 +3958,10 @@ ${tip}` : tip;
           <button class="tool tool--icon tool--quiet tool--refresh" type="button" data-action="refresh" title="Refresh" aria-label="Refresh">
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.46-3.54" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12.2 1.8v3h-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
+          <!-- Settings: VS Code opens its settings filtered to Git Lineage, the browser pane a dialog. -->
+          <button class="tool tool--icon tool--quiet tool--settings" type="button" data-action="settings" title="Settings" aria-label="Settings">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6.6 1.5h2.8l.4 1.9 1.3.7 1.8-.7 1.4 2.4-1.4 1.3v1.6l1.4 1.3-1.4 2.4-1.8-.7-1.3.7-.4 1.9H6.6l-.4-1.9-1.3-.7-1.8.7L1.7 10l1.4-1.3V7.1L1.7 5.8l1.4-2.4 1.8.7 1.3-.7z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
         </div>
       </header>
       <!-- Stopped merge/cherry-pick/revert/rebase: what happened, conflicted files, Continue/Skip/Abort. -->
@@ -4030,6 +4037,9 @@ ${tip}` : tip;
       },
       refresh: () => {
         send({ type: "refresh" });
+      },
+      openSettings: () => {
+        send({ type: "openSettings" });
       },
       updateFilters: (selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs) => {
         send({
@@ -4636,6 +4646,9 @@ ${tip}` : tip;
   var setupToolbar = (actions) => createToolbarController({
     onRefresh: () => {
       actions.refresh();
+    },
+    onOpenSettings: () => {
+      actions.openSettings();
     },
     onUpdateFilters: (selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs) => {
       actions.updateFilters(selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs);

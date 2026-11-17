@@ -8,6 +8,8 @@ import { GraphController, UNCOMMITTED_HASH } from '../src/core/graphController';
 import type { ConfirmOptions, GraphHost, PromptOptions } from '../src/core/graphHost';
 import { GitService } from '../src/git/gitService';
 import { startServer, type RunningServer } from '../src/standalone/server';
+import { DEFAULT_SETTINGS, readSettingsFile, StandaloneHost } from '../src/standalone/standaloneHost';
+import { sanitizeSettings } from '../src/core/settingsForm';
 import { FormAnswerer } from './helpers/formAnswers';
 
 // Throwaway repository: two commits on main, a branch "feature", one uncommitted file.
@@ -276,5 +278,56 @@ describe('Local server with the start page token (default of the command line)',
     const cookie = `ggn_token_${server.port}=${'\u00e4'.repeat(64)}`;
     expect((await request(server, { path: '/dist/main.js', headers: { Cookie: cookie } })).status).toBe(403);
     expect((await request(server, { path: `/?token=${server.token}` })).status).toBe(200);
+  });
+});
+
+describe('Settings (gear in the toolbar)', () => {
+  it('browser pane: a dialog that checks the numbers, saves the changes and applies them', async () => {
+    const host = new FakeHost();
+    const controller = controllerFor(host);
+    await controller.receive({ type: 'ready' });
+    const base = {
+      dateFormat: 'iso', authorDisplay: 'avatarName', avatarSource: 'initials', showRemoteBranches: false, showForkRemotes: true,
+      showOtherRefs: false, autoRefresh: true, confirmDetachedCheckout: true, gitTimeoutSeconds: '30',
+    };
+    host.forms.answers = [{ ...base, pageSize: '5' }, { ...base, pageSize: '200' }];
+    await controller.receive({ type: 'openSettings' } as never);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(host.forms.lastForm()!.title).toBe('Git Lineage settings');
+    expect(host.forms.errors).toEqual(['Please enter a number from 20 to 1000.']);
+    // Only the changed values are saved.
+    expect(host.settings).toEqual({ dateFormat: 'iso', authorDisplay: 'avatarName', showRemoteBranches: false, pageSize: 200 });
+    const commits = host.last('commits')!.payload!;
+    expect(commits).toMatchObject({ message: 'Settings saved.', dateFormat: 'iso', authorDisplay: 'avatarName', showRemoteBranches: false });
+  });
+
+  it('VS Code: the gear opens its own settings, no dialog', async () => {
+    const host = new FakeHost();
+    let opened = 0;
+    (host as FakeHost & { openSettings(): Promise<void> }).openSettings = async () => {
+      opened += 1;
+    };
+    await controllerFor(host).receive({ type: 'openSettings' } as never);
+    expect(opened).toBe(1);
+    expect(host.forms.forms).toEqual([]);
+  });
+
+  it('browser pane: saved in a settings file, read again with only known keys of the right type', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ggn-settings-'));
+    const file = path.join(dir, 'sub', 'settings.json');
+    try {
+      fs.mkdirSync(path.dirname(file));
+      fs.writeFileSync(file, JSON.stringify({ somethingElse: 1 }));
+      const host = new StandaloneHost({ ...DEFAULT_SETTINGS }, undefined, file);
+      await host.updateConfig('dateFormat', 'relative');
+      await host.updateConfig('pageSize', 300);
+      expect(readSettingsFile(file)).toEqual({ somethingElse: 1, dateFormat: 'relative', pageSize: 300 });
+      expect(host.config('dateFormat', 'short')).toBe('relative');
+      expect(sanitizeSettings({ dateFormat: 'relative', pageSize: '300', autoRefresh: false, evil: true })).toEqual({ dateFormat: 'relative', autoRefresh: false });
+      fs.writeFileSync(file, '{ broken');
+      expect(readSettingsFile(file)).toEqual({});
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

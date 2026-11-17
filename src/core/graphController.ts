@@ -18,6 +18,7 @@ import type { CommitAction, WebviewMessage, WorktreeAction } from '../webview/we
 import { formFlag, formText, type FormProblem, type FormSpec, type FormValues } from './forms';
 import type { Disposable, GraphHost } from './graphHost';
 import { GitHubAvatars, parseGitHubRepo } from './githubAvatars';
+import { readSettings, settingsForm, settingsFromForm, settingsProblem, type Settings } from './settingsForm';
 
 // Host-independent logic behind the webview: loading and paging commits, the
 // "Uncommitted Changes" row, commit details, context menu actions and auto refresh.
@@ -197,6 +198,9 @@ export class GraphController {
         return;
       case 'refresh':
         await this.reload('commits', 'Refreshed.');
+        return;
+      case 'openSettings':
+        await this.handleOpenSettings();
         return;
       case 'updateFilters':
         this.showRemoteBranches = message.payload.showRemoteBranches;
@@ -1885,6 +1889,32 @@ export class GraphController {
       rows.push(this.withTracking(this.withStashRefs(this.withWorktreeRefs(commit))));
     });
     return rows;
+  }
+
+  // Gear in the toolbar: VS Code's own settings; in the browser pane a dialog that saves the
+  // values (the host keeps them for the next start) and applies them right away.
+  private async handleOpenSettings(): Promise<void> {
+    if (this.host.openSettings) {
+      await this.host.openSettings();
+      return;
+    }
+    const current = readSettings((key, fallback) => this.host.config(key, fallback));
+    const values = await this.showForm(settingsForm(current), async (entered) => settingsProblem(entered));
+    if (!values) {
+      return;
+    }
+    const next = settingsFromForm(values, current);
+    const changed = (Object.keys(next) as Array<keyof Settings>).filter((key) => next[key] !== current[key]);
+    for (const key of changed) {
+      await this.host.updateConfig(key, next[key]);
+    }
+    // The filter checkboxes take the new start values now too.
+    this.showRemoteBranches = next.showRemoteBranches;
+    this.showForkRemotes = next.showForkRemotes;
+    this.showOtherRefs = next.showOtherRefs;
+    // Watchers follow autoRefresh.
+    this.watchedRepoRoot = undefined;
+    await this.reload('commits', changed.length > 0 ? 'Settings saved.' : 'Settings unchanged.', this.reloadLimit());
   }
 
   // GitHub avatars only when the author column shows avatars and GitHub is their chosen source.

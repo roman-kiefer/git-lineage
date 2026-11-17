@@ -58,6 +58,8 @@ A mouse click selects a commit and opens its details.
 
 ## Settings
 
+The gear in the toolbar opens them: in VS Code its settings, filtered to Git Lineage; in the Claude Code browser pane a dialog of its own (see [Git Lineage in Claude Code](docs/claude-code.md#settings)).
+
 | Setting | Default | Meaning |
 |---|---|---|
 | `gitLineage.pageSize` | 120 | Commits loaded per page |

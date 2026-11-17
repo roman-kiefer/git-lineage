@@ -20,10 +20,21 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   dateFormat: 'short',
   authorDisplay: 'name',
   avatarSource: 'initials',
+  confirmDetachedCheckout: true,
 };
 
 // How often the working tree is checked for changes (no save events outside an editor).
 export const WORKING_TREE_POLL_MS = 3000;
+
+// Saved settings (the dialog behind the gear); a missing or broken file counts as empty.
+export const readSettingsFile = (file: string): Record<string, unknown> => {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
 
 // Token of the GitHub CLI for github.com, if it is installed and signed in; undefined otherwise
 // (no gh, not signed in, timeout). Never asks the user anything.
@@ -75,6 +86,8 @@ export class StandaloneHost implements GraphHost {
   constructor(
     private readonly settings: Record<string, unknown> = DEFAULT_SETTINGS,
     private readonly fileAtRef: FileAtRef = async () => '',
+    // Where the settings dialog saves (~/.git-lineage/settings.json); undefined: memory only.
+    private readonly settingsFile?: string,
   ) {}
 
   // --- connection handling (used by the server) ---
@@ -117,9 +130,17 @@ export class StandaloneHost implements GraphHost {
     return key in this.settings ? (this.settings[key] as T) : fallback;
   }
 
-  // Kept in memory: the server has no settings file.
+  // In memory, and in the settings file (if any) so the next start keeps it. Other keys in the
+  // file stay as they are.
   async updateConfig(key: string, value: unknown): Promise<void> {
     this.settings[key] = value;
+    if (!this.settingsFile) {
+      return;
+    }
+    const saved = readSettingsFile(this.settingsFile);
+    saved[key] = value;
+    await fs.promises.mkdir(path.dirname(this.settingsFile), { recursive: true });
+    await fs.promises.writeFile(this.settingsFile, `${JSON.stringify(saved, null, 2)}\n`, 'utf8');
   }
 
   isOpen(): boolean {

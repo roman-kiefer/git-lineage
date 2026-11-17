@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ver
 
 ### Added
 
+- Gear in the toolbar: opens the settings. VS Code shows its settings filtered to Git Lineage; the Claude Code browser pane a dialog of its own that applies the changes right away and keeps them for the next start (`~/.git-lineage/settings.json`; `--set` still wins for one start).
 - **Other refs** checkbox: shows the commits of refs outside branches, remote branches and tags, e.g. the snapshots tools such as Codex keep under `refs/codex/`, with a chip for each (long hashes shortened, full name on hover). It only appears when the repository has such refs. Initial value: setting `gitLineage.showOtherRefs` (default: hidden).
 - Setting `gitLineage.authorDisplay`: the author column shows the name (default), avatar and name, or the avatar only (name on hover, narrow column). Avatars show the author's initials on a color of their own. The rows keep their height.
 - Setting `gitLineage.avatarSource`: `github` shows the authors' GitHub pictures instead of their initials (for repositories on github.com; initials when there is no picture). It asks GitHub once per author; VS Code uses your GitHub sign-in if there is one, the Claude Code plugin `GITHUB_TOKEN`/`GH_TOKEN` or else the GitHub CLI's sign-in (`gh auth token`). Default `initials`: nothing is sent anywhere.

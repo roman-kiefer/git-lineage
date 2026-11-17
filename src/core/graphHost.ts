@@ -60,4 +60,7 @@ export interface GraphHost {
   // GitHub token for avatars (setting avatarSource = github), without asking: VS Code's GitHub
   // sign-in, the browser pane GITHUB_TOKEN/GH_TOKEN. undefined: anonymous requests.
   githubToken?(): Promise<string | undefined>;
+  // Gear in the toolbar: VS Code opens its settings filtered to Git Lineage. Without it (browser
+  // pane) the controller shows its own settings dialog and saves through updateConfig.
+  openSettings?(): Promise<void>;
 }
