@@ -57,4 +57,7 @@ export interface GraphHost {
   // Open a folder (a worktree) in a new editor window.
   openFolder(folder: string): Promise<void>;
   watchRepository(target: WatchTarget, callbacks: WatchCallbacks): Disposable;
+  // GitHub token for avatars (setting avatarSource = github), without asking: VS Code's GitHub
+  // sign-in, the browser pane GITHUB_TOKEN/GH_TOKEN. undefined: anonymous requests.
+  githubToken?(): Promise<string | undefined>;
 }

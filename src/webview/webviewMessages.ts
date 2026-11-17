@@ -217,6 +217,10 @@ export type WebviewInitMessage = {
     otherRefCount: number;
     selectedSortMode: 'date';
     dateFormat: string;
+    // Author column: name | avatarName | avatar.
+    authorDisplay: string;
+    // GitHub pictures by author mail (avatarSource = github).
+    avatars: Record<string, string>;
     // OS regional format (e.g. de-DE), used for local/relative dates.
     dateLocale: string;
     commits: WebviewCommitSummary[];
@@ -241,6 +245,10 @@ export type WebviewCommitsMessage = {
     otherRefCount: number;
     selectedSortMode: 'date';
     dateFormat: string;
+    // Author column: name | avatarName | avatar.
+    authorDisplay: string;
+    // GitHub pictures by author mail (avatarSource = github).
+    avatars: Record<string, string>;
     // OS regional format (e.g. de-DE), used for local/relative dates.
     dateLocale: string;
     commits: WebviewCommitSummary[];
@@ -272,6 +280,7 @@ export type WebviewCommitSummary = {
   incomingLanes?: number[];
   outgoingLanes?: number[];
   authorName: string;
+  authorEmail?: string;
   authorDate: string;
   subject: string;
   isVirtual?: boolean;

@@ -376,10 +376,95 @@ ${details.body}` : "Not committed yet.";
     return date.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
   };
 
+  // webview/src/graph/authorDisplay.ts
+  var MODES2 = ["name", "avatarName", "avatar"];
+  var currentMode2 = "name";
+  var toAuthorDisplayMode = (value) => MODES2.includes(value) ? value : "name";
+  var setAuthorDisplay = (mode) => {
+    currentMode2 = toAuthorDisplayMode(mode);
+    const list = document.getElementById("commit-list");
+    MODES2.forEach((each) => list?.classList.toggle(`list--author-${each}`, each === currentMode2));
+  };
+  var authorInitials = (name) => {
+    const parts = name.replace(/\[bot\]$/i, "").split(/[\s._-]+/).map((part) => part.replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean);
+    if (parts.length === 0) {
+      return "?";
+    }
+    const first = Array.from(parts[0])[0] ?? "";
+    const last = parts.length > 1 ? Array.from(parts[parts.length - 1])[0] ?? "" : "";
+    return (first + last).toUpperCase();
+  };
+  var authorHue = (name) => {
+    let hash = 0;
+    for (const char of name.trim().toLowerCase()) {
+      hash = hash * 31 + (char.codePointAt(0) ?? 0) >>> 0;
+    }
+    return hash % 360;
+  };
+  var pictures = /* @__PURE__ */ new Map();
+  var showAvatarPicture = (avatar, url) => {
+    avatar.classList.add("author-avatar--picture");
+    avatar.style.backgroundImage = `url("${url}")`;
+    avatar.textContent = "";
+  };
+  var setAvatarPictures = (byEmail) => {
+    Object.entries(byEmail ?? {}).forEach(([email, url]) => {
+      if (typeof url === "string" && url.startsWith("data:image/")) {
+        pictures.set(email.toLowerCase(), url);
+      }
+    });
+    document.querySelectorAll(".author-avatar[data-email]").forEach((avatar) => {
+      const url = pictures.get(avatar.dataset.email ?? "");
+      if (url && !avatar.classList.contains("author-avatar--picture")) {
+        showAvatarPicture(avatar, url);
+      }
+    });
+  };
+  var createAvatar = (name, email) => {
+    const avatar = document.createElement("span");
+    avatar.className = "author-avatar";
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.style.setProperty("--author-hue", String(authorHue(name)));
+    avatar.textContent = authorInitials(name);
+    const key = email?.trim().toLowerCase();
+    if (key) {
+      avatar.dataset.email = key;
+      const url = pictures.get(key);
+      if (url) {
+        showAvatarPicture(avatar, url);
+      }
+    }
+    return avatar;
+  };
+  var fillAuthorCell = (cell, name, email) => {
+    cell.textContent = "";
+    if (currentMode2 === "name" || name === "*") {
+      cell.textContent = name;
+      return;
+    }
+    cell.classList.add("commit-col--author-with-avatar");
+    cell.appendChild(createAvatar(name, email));
+    if (currentMode2 === "avatar") {
+      cell.title = name;
+      cell.setAttribute("aria-label", name);
+      return;
+    }
+    const label = document.createElement("span");
+    label.className = "author-name";
+    label.textContent = name;
+    cell.appendChild(label);
+  };
+
   // webview/src/graph/handleWebviewMessages.ts
   var applyFiltersFromPayload = (payload, deps) => {
     if (payload?.dateFormat) {
       setDateFormat(payload.dateFormat, payload.dateLocale);
+    }
+    if (payload?.authorDisplay) {
+      setAuthorDisplay(payload.authorDisplay);
+    }
+    if (payload?.avatars) {
+      setAvatarPictures(payload.avatars);
     }
     if (payload?.repositories) {
       deps.renderRepositories(payload.repositories, payload.repositoryRoot ?? payload.repoRoot);
@@ -437,6 +522,10 @@ ${details.body}` : "Not committed yet.";
       }
       if (message.type === "commits") {
         handleCommitsMessage(message.payload, deps);
+        return;
+      }
+      if (message.type === "avatars") {
+        setAvatarPictures(message.payload?.avatars);
         return;
       }
       if (message.type === "commitDetails") {
@@ -930,7 +1019,7 @@ ${tip}` : tip;
     date.title = commit.authorDate;
     const author = document.createElement("div");
     author.className = "commit-col commit-col--author";
-    author.textContent = commit.authorName;
+    fillAuthorCell(author, commit.authorName, commit.authorEmail);
     const hash = document.createElement("div");
     hash.className = "commit-col commit-col--hash hash";
     hash.textContent = commit.shortHash;
@@ -4162,7 +4251,8 @@ ${tip}` : tip;
         return;
       }
       const hidden = columnsToHide(rowWidth, {
-        author: cssWidth(list, "--col-author-width", 140),
+        // Avatar only: the column has the fixed --col-author-cell width instead of the dragged one.
+        author: cssWidth(list, "--col-author-cell", cssWidth(list, "--col-author-width", 140)),
         date: cssWidth(list, "--col-date-width", 140),
         hash: cssWidth(list, "--col-hash-width", 90)
       });
@@ -4170,7 +4260,7 @@ ${tip}` : tip;
       const columns = ["minmax(0, 1fr)"];
       ["date", "author", "hash"].forEach((key) => {
         if (!hidden.includes(key)) {
-          columns.push(`var(--col-${key}-width)`);
+          columns.push(key === "author" ? "var(--col-author-cell, var(--col-author-width))" : `var(--col-${key}-width)`);
         }
       });
       const value = columns.join(" ");

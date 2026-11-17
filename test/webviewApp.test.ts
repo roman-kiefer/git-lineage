@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeAll, describe, expect, it } from 'vitest';
 import { bootstrapGraphApp } from '../webview/src/graph/bootstrapGraphApp';
+import { authorHue, authorInitials } from '../webview/src/graph/authorDisplay';
 import { loadCommitViews } from './helpers/fixtures';
 
 // Messages the webview sent to the extension.
@@ -121,6 +122,49 @@ describe('Webview app', () => {
     expect(sent).toMatchObject([{ type: 'updateFilters', payload: { showOtherRefs: true } }]);
     receive('commits', { commits, append: false, hasMore: false, showRemoteBranches: true, otherRefCount: 0 });
     expect(label.hidden).toBe(true);
+  });
+
+  it('author column: name, avatar and name, or avatar only (setting authorDisplay)', () => {
+    const list = document.getElementById('commit-list')!;
+    const cell = () => document.querySelector<HTMLElement>('.commit-col--author')!;
+    const name = commits.find((commit) => !commit.isConnectorRow && commit.authorName)!.authorName;
+    receive('commits', { commits, append: false, hasMore: false, authorDisplay: 'avatarName' });
+    expect(cell().querySelector('.author-avatar')!.textContent).toBe(authorInitials(name));
+    expect(cell().querySelector('.author-name')!.textContent).toBe(name);
+    expect(list.classList.contains('list--author-avatarName')).toBe(true);
+    receive('commits', { commits, append: false, hasMore: false, authorDisplay: 'avatar' });
+    expect(cell().querySelector('.author-name')).toBeNull();
+    expect(cell().title).toBe(name);
+    expect(list.classList.contains('list--author-avatar')).toBe(true);
+    receive('commits', { commits, append: false, hasMore: false, authorDisplay: 'name' });
+    expect(cell().querySelector('.author-avatar')).toBeNull();
+    expect(cell().textContent).toBe(name);
+    expect(list.classList.contains('list--author-avatar')).toBe(false);
+  });
+
+  it('GitHub pictures replace the initials, also on rows already drawn', () => {
+    const withMail = commits.map((commit) => ({ ...commit, authorEmail: 'Dev@Example.com' }));
+    const picture = 'data:image/png;base64,iVBORw0KGgo=';
+    receive('commits', { commits: withMail, append: false, hasMore: false, authorDisplay: 'avatarName' });
+    const avatar = () => document.querySelector<HTMLElement>('.author-avatar[data-email="dev@example.com"]')!;
+    expect(avatar().classList.contains('author-avatar--picture')).toBe(false);
+    receive('avatars', { avatars: { 'dev@example.com': picture } });
+    expect(avatar().classList.contains('author-avatar--picture')).toBe(true);
+    expect(avatar().style.backgroundImage).toContain('data:image/png');
+    expect(avatar().textContent).toBe('');
+    // Rows drawn later use the known picture right away; anything but an image is ignored.
+    receive('commits', { commits: withMail, append: false, hasMore: false, authorDisplay: 'avatar', avatars: { 'x@example.com': 'javascript:alert(1)' } });
+    expect(avatar().classList.contains('author-avatar--picture')).toBe(true);
+    receive('commits', { commits, append: false, hasMore: false, authorDisplay: 'name' });
+  });
+
+  it('avatar initials and color come from the name', () => {
+    expect(authorInitials('Roman Kiefer')).toBe('RK');
+    expect(authorInitials('github-actions[bot]')).toBe('GA');
+    expect(authorInitials('Tekenochichi')).toBe('T');
+    expect(authorInitials('  ')).toBe('?');
+    expect(authorHue('Roman Kiefer')).toBe(authorHue('roman kiefer'));
+    expect(authorHue('Roman Kiefer')).not.toBe(authorHue('Tekenochichi'));
   });
 
   it('Load more only while there are more commits (no "No more commits")', () => {

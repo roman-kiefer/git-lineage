@@ -68,6 +68,8 @@ A mouse click selects a commit and opens its details.
 | `gitLineage.confirmDetachedCheckout` | true | Ask before checking out a commit or tag (detached HEAD) |
 | `gitLineage.gitTimeoutSeconds` | 30 | Timeout for a single git command |
 | `gitLineage.dateFormat` | `short` | Date column: `short` ("6 Nov 2026 13:41", your time zone), `iso` (the author's time), `local` (your system's regional format) or `relative` ("3 days ago") |
+| `gitLineage.authorDisplay` | `name` | Author column: `name`, `avatarName` (avatar and name) or `avatar` (avatar only, the name on hover). Avatars show the author's initials on a color of their own, or their GitHub picture (`avatarSource`) |
+| `gitLineage.avatarSource` | `initials` | Avatars: `initials` (drawn locally, nothing is sent anywhere) or `github` (the authors' GitHub pictures, initials when there is none). `github` asks GitHub once per author, for a repository whose main remote is on github.com: with mails like `123+name@users.noreply.github.com` the picture comes directly, otherwise through the commit API. VS Code uses your GitHub sign-in if there is one; the Claude Code plugin uses `GITHUB_TOKEN` or `GH_TOKEN` if set, else the sign-in of the GitHub CLI (`gh auth token`), otherwise anonymous requests (60 per hour, public repositories only) |
 
 In Claude Code the same defaults apply; see [Git Lineage in Claude Code](docs/claude-code.md) for changing them.
 

@@ -2,6 +2,7 @@ import type { CommitRef, CommitView } from './model';
 import { createCommitGraphDebug, createCommitGraphDebugMeta } from './renderDebug';
 import { createRefIcon } from './refIcons';
 import { formatCommitDate } from './dateFormat';
+import { fillAuthorCell } from './authorDisplay';
 
 export type RenderCommitItemOptions = {
   selectedHash?: string;
@@ -318,7 +319,8 @@ const createCommitTableRow = (commit: CommitView): HTMLDivElement => {
 
   const author = document.createElement('div');
   author.className = 'commit-col commit-col--author';
-  author.textContent = commit.authorName;
+  // Name, avatar and name, or avatar only (setting authorDisplay).
+  fillAuthorCell(author, commit.authorName, commit.authorEmail);
 
   const hash = document.createElement('div');
   hash.className = 'commit-col commit-col--hash hash';

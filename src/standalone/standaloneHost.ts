@@ -1,3 +1,4 @@
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ServerResponse } from 'http';
@@ -17,10 +18,26 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   autoRefresh: true,
   gitTimeoutSeconds: 30,
   dateFormat: 'short',
+  authorDisplay: 'name',
+  avatarSource: 'initials',
 };
 
 // How often the working tree is checked for changes (no save events outside an editor).
 export const WORKING_TREE_POLL_MS = 3000;
+
+// Token of the GitHub CLI for github.com, if it is installed and signed in; undefined otherwise
+// (no gh, not signed in, timeout). Never asks the user anything.
+export const ghCliToken = (run: typeof execFile = execFile): Promise<string | undefined> =>
+  new Promise((resolve) => {
+    try {
+      run('gh', ['auth', 'token', '--hostname', 'github.com'], { timeout: 5000, windowsHide: true }, (error, stdout) => {
+        const token = String(stdout ?? '').trim();
+        resolve(!error && /^[\w-]+$/.test(token) ? token : undefined);
+      });
+    } catch {
+      resolve(undefined);
+    }
+  });
 
 type HostRequest =
   | { kind: 'confirm'; message: string; detail?: string; buttons: string[] }
@@ -158,6 +175,18 @@ export class StandaloneHost implements GraphHost {
   async openFolder(): Promise<void> {
     await this.onlyInVsCode('Opening a worktree in a new window');
   }
+
+  // GITHUB_TOKEN or GH_TOKEN from the environment, else the GitHub CLI's sign-in (gh auth token),
+  // asked once per server start; without either, anonymous requests. Only called for GitHub
+  // avatars (setting avatarSource = github).
+  githubToken(): Promise<string | undefined> {
+    this.githubTokenRequest ??= Promise.resolve(
+      process.env.GITHUB_TOKEN || process.env.GH_TOKEN || undefined,
+    ).then((fromEnv) => fromEnv ?? ghCliToken());
+    return this.githubTokenRequest;
+  }
+
+  private githubTokenRequest: Promise<string | undefined> | undefined;
 
   // fs.watch on the git directories plus a periodic working tree check.
   watchRepository(target: WatchTarget, callbacks: WatchCallbacks): Disposable {

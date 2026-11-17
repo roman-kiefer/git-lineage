@@ -19,7 +19,7 @@ Start the Git Lineage server for a repository and show it in the browser pane.
    ```
 
    Run it as a background command. It needs Node.js 18 or later; if `node` is missing, tell the user to install Node.js and stop.
-   If the user asked for a setting, add `--set key=value` for it (keys as in the VS Code extension without the `gitLineage.` prefix: `pageSize`, `showRemoteBranches`, `showForkRemotes`, `showOtherRefs`, `autoRefresh`, `confirmDetachedCheckout`, `gitTimeoutSeconds`, `dateFormat` with `short`, `iso`, `local` or `relative`).
+   If the user asked for a setting, add `--set key=value` for it (keys as in the VS Code extension without the `gitLineage.` prefix: `pageSize`, `showRemoteBranches`, `showForkRemotes`, `showOtherRefs`, `autoRefresh`, `confirmDetachedCheckout`, `gitTimeoutSeconds`, `dateFormat` with `short`, `iso`, `local` or `relative`, `authorDisplay` with `name`, `avatarName` or `avatar`, `avatarSource` with `initials` or `github`).
 
    Wait for its first output line, `Git Lineage: http://127.0.0.1:<port>/?token=<token>`, and take the complete URL from it, including the token (without it the page answers "Token required"). An error line instead (for example not a Git repository) goes to the user as it is.
    Keep the background command's ID, the repository folder and the URL in mind: `/git-lineage:lineage-stop` needs them.

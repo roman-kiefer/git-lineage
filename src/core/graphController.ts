@@ -17,6 +17,7 @@ import { getOsLocale } from '../utils/osLocale';
 import type { CommitAction, WebviewMessage, WorktreeAction } from '../webview/webviewMessages';
 import { formFlag, formText, type FormProblem, type FormSpec, type FormValues } from './forms';
 import type { Disposable, GraphHost } from './graphHost';
+import { GitHubAvatars, parseGitHubRepo } from './githubAvatars';
 
 // Host-independent logic behind the webview: loading and paging commits, the
 // "Uncommitted Changes" row, commit details, context menu actions and auto refresh.
@@ -103,6 +104,10 @@ export class GraphController {
   // Refs outside branches, remotes and tags (e.g. refs/codex/snapshots/...): followed on request.
   private showOtherRefs: boolean;
   private otherRefCount = 0;
+  // GitHub avatars (setting avatarSource = github): resolver per repository, pictures found so far.
+  private githubAvatars: GitHubAvatars | undefined;
+  private githubAvatarsRepo: string | undefined;
+  private avatarUrls: Record<string, string> = {};
   private selectedSortMode: 'date' = 'date';
   private branchOptions: BranchOption[] = [{ value: '__all__', label: 'Show All', type: 'all' }];
   // Repositories offered in the repo selector and the currently shown one.
@@ -157,12 +162,13 @@ export class GraphController {
     return this.runSafely(() => this.handleMessage(message));
   }
 
-  // Settings changed: re-create the watcher; a new date format redraws the list.
-  onConfigurationChanged(change: { dateFormat: boolean }): void {
+  // Settings changed: re-create the watcher; a new date format or author display redraws the list.
+  onConfigurationChanged(change: { dateFormat: boolean; authorDisplay?: boolean }): void {
+    // authorDisplay also stands for avatarSource (both change the author column).
     this.watchedRepoRoot = undefined;
     void this.updateWatchers(this.repoRoot);
-    if (change.dateFormat) {
-      void this.runSafely(() => this.handleAutoRefresh('Date format changed.'));
+    if (change.dateFormat || change.authorDisplay) {
+      void this.runSafely(() => this.handleAutoRefresh(change.dateFormat ? 'Date format changed.' : 'Author display changed.'));
     }
   }
 
@@ -1549,6 +1555,10 @@ export class GraphController {
       selectedSortMode: this.selectedSortMode,
       // Date column format (short | iso | local | relative), applied in the webview.
       dateFormat: this.host.config<string>('dateFormat', 'short'),
+      // Author column: name, avatar and name, or avatar only; applied in the webview.
+      authorDisplay: this.host.config<string>('authorDisplay', 'name'),
+      // GitHub pictures by author mail (lower case); without them the avatars show initials.
+      avatars: this.useGitHubAvatars() ? this.avatarUrls : {},
       // OS regional format; the webview itself only knows the host's UI language.
       dateLocale: this.dateLocale,
       // Stopped merge/cherry-pick/revert/rebase (banner with Continue/Skip/Abort), or null.
@@ -1614,6 +1624,7 @@ export class GraphController {
     });
 
     await this.updateWatchers(this.repoRoot);
+    void this.loadAvatars();
   }
 
   // Refresh after a repository change, keeping roughly the amount of loaded commits.
@@ -1749,6 +1760,7 @@ export class GraphController {
         maxLanes,
       },
     });
+    void this.loadAvatars();
   }
 
   private async handleSelectCommit(hash: string): Promise<void> {
@@ -1873,6 +1885,37 @@ export class GraphController {
       rows.push(this.withTracking(this.withStashRefs(this.withWorktreeRefs(commit))));
     });
     return rows;
+  }
+
+  // GitHub avatars only when the author column shows avatars and GitHub is their chosen source.
+  private useGitHubAvatars(): boolean {
+    return this.host.config<string>('authorDisplay', 'name') !== 'name' && this.host.config<string>('avatarSource', 'initials') === 'github';
+  }
+
+  // Pictures for the authors of the loaded commits not asked about yet; sent to the webview as
+  // they arrive. Failures (offline, rate limit) leave the initials.
+  private async loadAvatars(): Promise<void> {
+    if (!this.useGitHubAvatars() || !this.repoRoot) {
+      return;
+    }
+    const repo = parseGitHubRepo(await this.gitService.mainRemoteUrl().catch(() => undefined));
+    const repoKey = repo ? `${repo.owner}/${repo.repo}`.toLowerCase() : '';
+    if (!this.githubAvatars || this.githubAvatarsRepo !== repoKey) {
+      this.githubAvatars = new GitHubAvatars(undefined, async () => this.host.githubToken?.());
+      this.githubAvatarsRepo = repoKey;
+      this.avatarUrls = {};
+    }
+    const authors = new Map<string, string>();
+    this.loadedCommits.forEach((commit) => {
+      if (commit.authorEmail && !authors.has(commit.authorEmail)) {
+        authors.set(commit.authorEmail, commit.hash);
+      }
+    });
+    const found = await this.githubAvatars.resolve(repo, authors);
+    if (Object.keys(found).length > 0) {
+      Object.assign(this.avatarUrls, found);
+      await this.host.post({ type: 'avatars', payload: { avatars: found } });
+    }
   }
 
   // Remotes whose branches are left out: the forks while "Forks" is off.

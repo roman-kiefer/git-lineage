@@ -170,12 +170,14 @@ export function parseGitLog(raw: string): CommitSummary[] {
       return;
     }
 
-    const [hash, shortHash, parentsField, authorName, authorDate, subject, refsField = ''] = fields;
+    // Author mail last (added later; fixtures without it still parse).
+    const [hash, shortHash, parentsField, authorName, authorDate, subject, refsField = '', authorEmail] = fields;
     commits.push({
       hash,
       shortHash,
       parents: parentsField ? parentsField.split(' ').filter(Boolean) : [],
       authorName,
+      ...(authorEmail ? { authorEmail } : {}),
       authorDate,
       subject,
       refs: parseRefs(refsField),

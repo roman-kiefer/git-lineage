@@ -189,7 +189,7 @@ export class GitService {
     const skip = Math.max(options?.skip ?? 0, 0);
     const sortMode = options?.sortMode ?? 'date';
 
-    const format = '%x1d%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%s%x1f%D%x1e';
+    const format = '%x1d%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%s%x1f%D%x1f%ae%x1e';
     const args = [
       'log',
       `-n`,
@@ -397,19 +397,35 @@ export class GitService {
   // Remotes other than the main one: forks such as a colleague's copy of the repository. Git has
   // no notion of a fork; the main remote is "origin", else the one most local branches track.
   async forkRemotes(): Promise<string[]> {
+    const { remotes, main } = await this.mainRemote();
+    if (remotes.length < 2) {
+      return [];
+    }
+    return remotes.filter((remote) => remote !== main).sort((a, b) => a.localeCompare(b));
+  }
+
+  // URL of the main remote (see forkRemotes), e.g. to find the repository on GitHub.
+  async mainRemoteUrl(): Promise<string | undefined> {
+    const { main } = await this.mainRemote();
+    if (!main) {
+      return undefined;
+    }
+    return (await this.execGit(['remote', 'get-url', main], await this.requireRepoRoot())).trim() || undefined;
+  }
+
+  private async mainRemote(): Promise<{ remotes: string[]; main: string | undefined }> {
     const repoRoot = await this.requireRepoRoot();
     const lines = (text: string) => text.split('\n').map((line) => line.trim()).filter(Boolean);
     const remotes = lines(await this.execGit(['remote'], repoRoot));
     if (remotes.length < 2) {
-      return [];
+      return { remotes, main: remotes[0] };
     }
-    let main = remotes.includes('origin') ? 'origin' : undefined;
-    if (!main) {
-      const tracked = lines(await this.execGit(['for-each-ref', '--format', '%(upstream:remotename)', 'refs/heads'], repoRoot));
-      const count = (remote: string) => tracked.filter((name) => name === remote).length;
-      main = [...remotes].sort((a, b) => count(b) - count(a))[0];
+    if (remotes.includes('origin')) {
+      return { remotes, main: 'origin' };
     }
-    return remotes.filter((remote) => remote !== main).sort((a, b) => a.localeCompare(b));
+    const tracked = lines(await this.execGit(['for-each-ref', '--format', '%(upstream:remotename)', 'refs/heads'], repoRoot));
+    const count = (remote: string) => tracked.filter((name) => name === remote).length;
+    return { remotes, main: [...remotes].sort((a, b) => count(b) - count(a))[0] };
   }
 
   // Upstream of every local branch with ahead/behind counts (local data, as of the last fetch).

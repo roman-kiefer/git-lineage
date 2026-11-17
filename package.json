@@ -113,6 +113,34 @@
                     ],
                     "default": "short",
                     "description": "Format of the date column in the commit list."
+                },
+                "gitLineage.authorDisplay": {
+                    "type": "string",
+                    "enum": [
+                        "name",
+                        "avatarName",
+                        "avatar"
+                    ],
+                    "enumDescriptions": [
+                        "The author's name.",
+                        "Avatar and name.",
+                        "Avatar only, the name on hover."
+                    ],
+                    "default": "name",
+                    "markdownDescription": "Author column in the commit list. Avatars show the author's initials on a color of their own, or their GitHub picture (see `#gitLineage.avatarSource#`)."
+                },
+                "gitLineage.avatarSource": {
+                    "type": "string",
+                    "enum": [
+                        "initials",
+                        "github"
+                    ],
+                    "enumDescriptions": [
+                        "Initials on a color of their own, drawn locally; nothing is sent anywhere.",
+                        "The authors' GitHub pictures (initials when there is none). Asks GitHub about the commits' authors: needs a repository on github.com, uses your GitHub sign-in in VS Code if there is one."
+                    ],
+                    "default": "initials",
+                    "markdownDescription": "Where the avatars of the author column come from (when `#gitLineage.authorDisplay#` shows avatars)."
                 }
             }
         }

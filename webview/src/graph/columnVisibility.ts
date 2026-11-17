@@ -39,7 +39,8 @@ export const bindColumnVisibility = (list: HTMLElement): void => {
       return;
     }
     const hidden = columnsToHide(rowWidth, {
-      author: cssWidth(list, '--col-author-width', 140),
+      // Avatar only: the column has the fixed --col-author-cell width instead of the dragged one.
+      author: cssWidth(list, '--col-author-cell', cssWidth(list, '--col-author-width', 140)),
       date: cssWidth(list, '--col-date-width', 140),
       hash: cssWidth(list, '--col-hash-width', 90),
     });
@@ -48,7 +49,7 @@ export const bindColumnVisibility = (list: HTMLElement): void => {
     const columns = ['minmax(0, 1fr)'];
     (['date', 'author', 'hash'] as const).forEach((key) => {
       if (!hidden.includes(key)) {
-        columns.push(`var(--col-${key}-width)`);
+        columns.push(key === 'author' ? 'var(--col-author-cell, var(--col-author-width))' : `var(--col-${key}-width)`);
       }
     });
     // Only on a change: this writes the style attribute the MutationObserver below watches.

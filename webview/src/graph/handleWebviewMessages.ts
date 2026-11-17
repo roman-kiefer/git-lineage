@@ -1,6 +1,7 @@
 import type { CommitView, WorktreeView } from './model';
 import type { CommitDetailsView } from './renderCommitDetails';
 import { setDateFormat } from './dateFormat';
+import { setAuthorDisplay, setAvatarPictures } from './authorDisplay';
 
 export type BranchFilterOption = {
   value: string;
@@ -24,6 +25,9 @@ export type WebviewIncomingPayload = {
   otherRefCount?: number;
   selectedSortMode?: 'date';
   dateFormat?: string;
+  authorDisplay?: string;
+  // GitHub pictures by author mail (setting avatarSource = github).
+  avatars?: Record<string, string>;
   dateLocale?: string;
   commits?: CommitView[];
   details?: CommitDetailsView;
@@ -67,6 +71,12 @@ const applyFiltersFromPayload = (
   // Date format setting must be known before the rows are rendered.
   if (payload?.dateFormat) {
     setDateFormat(payload.dateFormat, payload.dateLocale);
+  }
+  if (payload?.authorDisplay) {
+    setAuthorDisplay(payload.authorDisplay);
+  }
+  if (payload?.avatars) {
+    setAvatarPictures(payload.avatars);
   }
   if (payload?.repositories) {
     deps.renderRepositories(payload.repositories, payload.repositoryRoot ?? payload.repoRoot);
@@ -142,6 +152,11 @@ export const createWebviewMessageHandler = (deps: WebviewMessageDeps) => {
     }
     if (message.type === 'commits') {
       handleCommitsMessage(message.payload, deps);
+      return;
+    }
+    // GitHub pictures that arrived after the rows (setting avatarSource = github).
+    if (message.type === 'avatars') {
+      setAvatarPictures(message.payload?.avatars);
       return;
     }
     if (message.type === 'commitDetails') {

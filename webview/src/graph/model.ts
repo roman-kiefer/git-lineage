@@ -30,6 +30,8 @@ export type CommitView = {
   graphConnectorPrefixes?: string[];
   refs: CommitRef[];
   authorName: string;
+  // Key for the avatar (setting avatarSource = github).
+  authorEmail?: string;
   authorDate: string;
   subject: string;
   incomingLanes?: number[];

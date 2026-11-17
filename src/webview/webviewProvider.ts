@@ -49,6 +49,8 @@ export class GitGraphWebviewProvider implements GraphHost {
         if (event.affectsConfiguration('gitLineage')) {
           this.controller.onConfigurationChanged({
             dateFormat: event.affectsConfiguration('gitLineage.dateFormat'),
+            authorDisplay:
+              event.affectsConfiguration('gitLineage.authorDisplay') || event.affectsConfiguration('gitLineage.avatarSource'),
           });
         }
       }),
@@ -163,6 +165,15 @@ export class GitGraphWebviewProvider implements GraphHost {
     await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(folder), { forceNewWindow: true });
   }
 
+  // VS Code's GitHub sign-in, if the user is signed in already (silent: never asks).
+  async githubToken(): Promise<string | undefined> {
+    const session = await vscode.authentication.getSession('github', ['repo'], { silent: true }).then(
+      (found) => found,
+      () => undefined,
+    );
+    return session?.accessToken;
+  }
+
   async openTerminal(cwd: string, name: string, command: string): Promise<void> {
     const terminal = vscode.window.createTerminal({ name, cwd });
     terminal.show();
@@ -218,7 +229,7 @@ export class GitGraphWebviewProvider implements GraphHost {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.panel?.webview.cspSource} https:; style-src ${this.panel?.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.panel?.webview.cspSource} https: data:; style-src ${this.panel?.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
     <title>Git Lineage</title>
     <link rel="stylesheet" href="${styleUri}" />
   </head>

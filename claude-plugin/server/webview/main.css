@@ -168,7 +168,7 @@ body {
 }
 .list-head-row {
   display: grid;
-  grid-template-columns: var( --row-columns, minmax(0, 1fr) var(--col-date-width) var(--col-author-width) var(--col-hash-width) );
+  grid-template-columns: var( --row-columns, minmax(0, 1fr) var(--col-date-width) var(--col-author-cell, var(--col-author-width)) var(--col-hash-width) );
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -361,7 +361,7 @@ body {
 }
 .commit-row {
   display: grid;
-  grid-template-columns: var( --row-columns, minmax(0, 1fr) var(--col-date-width) var(--col-author-width) var(--col-hash-width) );
+  grid-template-columns: var( --row-columns, minmax(0, 1fr) var(--col-date-width) var(--col-author-cell, var(--col-author-width)) var(--col-hash-width) );
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -396,6 +396,45 @@ body {
 }
 .commit-col--date {
   font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+}
+.commit-col--author-with-avatar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.author-avatar {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  color: #fff;
+  background: hsl(var(--author-hue, 210) 45% 42%);
+}
+.author-avatar--picture {
+  background-size: cover;
+  background-position: center;
+}
+.author-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list--author-avatar {
+  --col-author-cell: 52px;
+}
+.list--author-avatar .list-head-col--author .col-resize-handle {
+  display: none;
+}
+.list--author-avatar .list-head-col--author {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .commit-col--description {
   display: flex;

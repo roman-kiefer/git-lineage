@@ -180,12 +180,13 @@ function parseGitLog(raw) {
       pendingConnectorPrefixes = [];
       return;
     }
-    const [hash, shortHash, parentsField, authorName, authorDate, subject, refsField = ""] = fields;
+    const [hash, shortHash, parentsField, authorName, authorDate, subject, refsField = "", authorEmail] = fields;
     commits.push({
       hash,
       shortHash,
       parents: parentsField ? parentsField.split(" ").filter(Boolean) : [],
       authorName,
+      ...authorEmail ? { authorEmail } : {},
       authorDate,
       subject,
       refs: parseRefs(refsField),
@@ -454,7 +455,7 @@ var GitService = class {
     const hiddenRemotes = showRemoteBranches ? options?.hiddenRemotes ?? [] : [];
     const skip = Math.max(options?.skip ?? 0, 0);
     const sortMode = options?.sortMode ?? "date";
-    const format = "%x1d%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%s%x1f%D%x1e";
+    const format = "%x1d%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%s%x1f%D%x1f%ae%x1e";
     const args = [
       "log",
       `-n`,
@@ -620,19 +621,33 @@ var GitService = class {
   // Remotes other than the main one: forks such as a colleague's copy of the repository. Git has
   // no notion of a fork; the main remote is "origin", else the one most local branches track.
   async forkRemotes() {
+    const { remotes, main } = await this.mainRemote();
+    if (remotes.length < 2) {
+      return [];
+    }
+    return remotes.filter((remote) => remote !== main).sort((a, b) => a.localeCompare(b));
+  }
+  // URL of the main remote (see forkRemotes), e.g. to find the repository on GitHub.
+  async mainRemoteUrl() {
+    const { main } = await this.mainRemote();
+    if (!main) {
+      return void 0;
+    }
+    return (await this.execGit(["remote", "get-url", main], await this.requireRepoRoot())).trim() || void 0;
+  }
+  async mainRemote() {
     const repoRoot = await this.requireRepoRoot();
     const lines = (text) => text.split("\n").map((line) => line.trim()).filter(Boolean);
     const remotes = lines(await this.execGit(["remote"], repoRoot));
     if (remotes.length < 2) {
-      return [];
+      return { remotes, main: remotes[0] };
     }
-    let main = remotes.includes("origin") ? "origin" : void 0;
-    if (!main) {
-      const tracked = lines(await this.execGit(["for-each-ref", "--format", "%(upstream:remotename)", "refs/heads"], repoRoot));
-      const count = (remote) => tracked.filter((name) => name === remote).length;
-      main = [...remotes].sort((a, b) => count(b) - count(a))[0];
+    if (remotes.includes("origin")) {
+      return { remotes, main: "origin" };
     }
-    return remotes.filter((remote) => remote !== main).sort((a, b) => a.localeCompare(b));
+    const tracked = lines(await this.execGit(["for-each-ref", "--format", "%(upstream:remotename)", "refs/heads"], repoRoot));
+    const count = (remote) => tracked.filter((name) => name === remote).length;
+    return { remotes, main: [...remotes].sort((a, b) => count(b) - count(a))[0] };
   }
   // Upstream of every local branch with ahead/behind counts (local data, as of the last fetch).
   async branchTracking() {
@@ -1097,6 +1112,120 @@ var formText = (values, id) => {
 };
 var formFlag = (values, id) => values[id] === true;
 
+// src/core/githubAvatars.ts
+var https = __toESM(require("https"));
+var AVATAR_SIZE = 32;
+var PARALLEL = 4;
+var parseGitHubRepo = (url) => {
+  const match = /^(?:https?:\/\/(?:[^@/]+@)?|ssh:\/\/git@|git@)github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i.exec(
+    (url ?? "").trim()
+  );
+  return match ? { owner: match[1], repo: match[2] } : void 0;
+};
+var noreplyAvatarUrl = (email) => {
+  const match = /^(?:(\d+)\+)?([^@]+)@users\.noreply\.github\.com$/i.exec(email.trim());
+  if (!match) {
+    return void 0;
+  }
+  return match[1] ? `https://avatars.githubusercontent.com/u/${match[1]}?s=${AVATAR_SIZE}` : `https://github.com/${encodeURIComponent(match[2])}.png?size=${AVATAR_SIZE}`;
+};
+var withSize = (avatarUrl) => `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}s=${AVATAR_SIZE}`;
+var httpsGet = (url, headers) => new Promise((resolve6, reject) => {
+  const fetchUrl = (target, redirects) => {
+    const request = https.get(target, { headers, timeout: 1e4 }, (response) => {
+      const status = response.statusCode ?? 0;
+      const location = response.headers.location;
+      if (status >= 300 && status < 400 && location && redirects > 0) {
+        response.resume();
+        fetchUrl(new URL(location, target).toString(), redirects - 1);
+        return;
+      }
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => resolve6({ status, body: Buffer.concat(chunks), contentType: response.headers["content-type"] }));
+      response.on("error", reject);
+    });
+    request.on("timeout", () => request.destroy(new Error("timeout")));
+    request.on("error", reject);
+  };
+  fetchUrl(url, 3);
+});
+var GitHubAvatars = class {
+  constructor(get2 = httpsGet, token = async () => void 0) {
+    this.get = get2;
+    this.token = token;
+    // Mail (lower case) -> data URL, or undefined when GitHub has no picture for it.
+    this.cache = /* @__PURE__ */ new Map();
+    // Rate limit reached or GitHub unreachable: no more API requests this session.
+    this.apiBlocked = false;
+  }
+  // Pictures known so far (for a webview that was opened again).
+  async known() {
+    const entries = await Promise.all(
+      [...this.cache.entries()].map(async ([email, pending]) => [email, await pending.catch(() => void 0)])
+    );
+    return Object.fromEntries(entries.filter((entry) => !!entry[1]));
+  }
+  // Resolve the authors not asked about yet; returns the pictures found among them.
+  // authors: mail -> one commit of that author (for the commit API).
+  async resolve(repo, authors) {
+    const todo = [...authors.entries()].map(([email, sha]) => [email.trim().toLowerCase(), sha]).filter(([email]) => email && !this.cache.has(email));
+    const found = {};
+    for (let index = 0; index < todo.length; index += PARALLEL) {
+      await Promise.all(
+        todo.slice(index, index + PARALLEL).map(async ([email, sha]) => {
+          const pending = this.lookup(repo, email, sha).catch(() => void 0);
+          this.cache.set(email, pending);
+          const dataUrl = await pending;
+          if (dataUrl) {
+            found[email] = dataUrl;
+          }
+        })
+      );
+    }
+    return found;
+  }
+  async lookup(repo, email, sha) {
+    const direct = noreplyAvatarUrl(email);
+    if (direct) {
+      return this.download(direct);
+    }
+    if (!repo || this.apiBlocked) {
+      return void 0;
+    }
+    const headers = {
+      "User-Agent": "git-lineage",
+      Accept: "application/vnd.github+json"
+    };
+    const token = await this.token().catch(() => void 0);
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await this.get(
+      `https://api.github.com/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.repo)}/commits/${sha}`,
+      headers
+    ).catch(() => void 0);
+    if (!response || response.status === 403 || response.status === 429) {
+      this.apiBlocked = true;
+      this.cache.delete(email);
+      return void 0;
+    }
+    if (response.status !== 200) {
+      return void 0;
+    }
+    const avatarUrl = JSON.parse(response.body.toString("utf8")).author?.avatar_url;
+    return avatarUrl ? this.download(withSize(avatarUrl)) : void 0;
+  }
+  async download(url) {
+    const response = await this.get(url, { "User-Agent": "git-lineage" });
+    const type = (response.contentType ?? "").split(";")[0].trim();
+    if (response.status !== 200 || !type.startsWith("image/")) {
+      return void 0;
+    }
+    return `data:${type};base64,${response.body.toString("base64")}`;
+  }
+};
+
 // src/core/graphController.ts
 var MAX_REBASE_COMMITS = 200;
 var splitRemoteRef = (remoteRef, remotes) => {
@@ -1127,6 +1256,7 @@ var GraphController = class {
     this.selectedBranch = "__all__";
     this.forkRemotes = [];
     this.otherRefCount = 0;
+    this.avatarUrls = {};
     this.selectedSortMode = "date";
     this.branchOptions = [{ value: "__all__", label: "Show All", type: "all" }];
     // Repositories offered in the repo selector and the currently shown one.
@@ -1154,12 +1284,12 @@ var GraphController = class {
   receive(message) {
     return this.runSafely(() => this.handleMessage(message));
   }
-  // Settings changed: re-create the watcher; a new date format redraws the list.
+  // Settings changed: re-create the watcher; a new date format or author display redraws the list.
   onConfigurationChanged(change) {
     this.watchedRepoRoot = void 0;
     void this.updateWatchers(this.repoRoot);
-    if (change.dateFormat) {
-      void this.runSafely(() => this.handleAutoRefresh("Date format changed."));
+    if (change.dateFormat || change.authorDisplay) {
+      void this.runSafely(() => this.handleAutoRefresh(change.dateFormat ? "Date format changed." : "Author display changed."));
     }
   }
   // The webview became visible again: catch up on changes made while it was hidden.
@@ -2433,6 +2563,10 @@ var GraphController = class {
       selectedSortMode: this.selectedSortMode,
       // Date column format (short | iso | local | relative), applied in the webview.
       dateFormat: this.host.config("dateFormat", "short"),
+      // Author column: name, avatar and name, or avatar only; applied in the webview.
+      authorDisplay: this.host.config("authorDisplay", "name"),
+      // GitHub pictures by author mail (lower case); without them the avatars show initials.
+      avatars: this.useGitHubAvatars() ? this.avatarUrls : {},
       // OS regional format; the webview itself only knows the host's UI language.
       dateLocale: this.dateLocale,
       // Stopped merge/cherry-pick/revert/rebase (banner with Continue/Skip/Abort), or null.
@@ -2485,6 +2619,7 @@ var GraphController = class {
       }
     });
     await this.updateWatchers(this.repoRoot);
+    void this.loadAvatars();
   }
   // Refresh after a repository change, keeping roughly the amount of loaded commits.
   async handleAutoRefresh(message) {
@@ -2604,6 +2739,7 @@ var GraphController = class {
         maxLanes
       }
     });
+    void this.loadAvatars();
   }
   async handleSelectCommit(hash) {
     if (hash.startsWith("__virtual__")) {
@@ -2708,6 +2844,35 @@ var GraphController = class {
       rows.push(this.withTracking(this.withStashRefs(this.withWorktreeRefs(commit))));
     });
     return rows;
+  }
+  // GitHub avatars only when the author column shows avatars and GitHub is their chosen source.
+  useGitHubAvatars() {
+    return this.host.config("authorDisplay", "name") !== "name" && this.host.config("avatarSource", "initials") === "github";
+  }
+  // Pictures for the authors of the loaded commits not asked about yet; sent to the webview as
+  // they arrive. Failures (offline, rate limit) leave the initials.
+  async loadAvatars() {
+    if (!this.useGitHubAvatars() || !this.repoRoot) {
+      return;
+    }
+    const repo = parseGitHubRepo(await this.gitService.mainRemoteUrl().catch(() => void 0));
+    const repoKey = repo ? `${repo.owner}/${repo.repo}`.toLowerCase() : "";
+    if (!this.githubAvatars || this.githubAvatarsRepo !== repoKey) {
+      this.githubAvatars = new GitHubAvatars(void 0, async () => this.host.githubToken?.());
+      this.githubAvatarsRepo = repoKey;
+      this.avatarUrls = {};
+    }
+    const authors = /* @__PURE__ */ new Map();
+    this.loadedCommits.forEach((commit) => {
+      if (commit.authorEmail && !authors.has(commit.authorEmail)) {
+        authors.set(commit.authorEmail, commit.hash);
+      }
+    });
+    const found = await this.githubAvatars.resolve(repo, authors);
+    if (Object.keys(found).length > 0) {
+      Object.assign(this.avatarUrls, found);
+      await this.host.post({ type: "avatars", payload: { avatars: found } });
+    }
   }
   // Remotes whose branches are left out: the forks while "Forks" is off.
   hiddenRemotes() {
@@ -2917,6 +3082,7 @@ var buildGraphCommits = (displayCommits) => {
 };
 
 // src/standalone/standaloneHost.ts
+var import_child_process3 = require("child_process");
 var fs4 = __toESM(require("fs"));
 var path5 = __toESM(require("path"));
 var DEFAULT_SETTINGS = {
@@ -2926,9 +3092,21 @@ var DEFAULT_SETTINGS = {
   showOtherRefs: false,
   autoRefresh: true,
   gitTimeoutSeconds: 30,
-  dateFormat: "short"
+  dateFormat: "short",
+  authorDisplay: "name",
+  avatarSource: "initials"
 };
 var WORKING_TREE_POLL_MS = 3e3;
+var ghCliToken = (run2 = import_child_process3.execFile) => new Promise((resolve6) => {
+  try {
+    run2("gh", ["auth", "token", "--hostname", "github.com"], { timeout: 5e3, windowsHide: true }, (error, stdout) => {
+      const token = String(stdout ?? "").trim();
+      resolve6(!error && /^[\w-]+$/.test(token) ? token : void 0);
+    });
+  } catch {
+    resolve6(void 0);
+  }
+});
 var MAX_VIEW_BYTES = 2 * 1024 * 1024;
 var StandaloneHost = class {
   constructor(settings = DEFAULT_SETTINGS, fileAtRef = async () => "") {
@@ -3022,6 +3200,15 @@ var StandaloneHost = class {
   }
   async openFolder() {
     await this.onlyInVsCode("Opening a worktree in a new window");
+  }
+  // GITHUB_TOKEN or GH_TOKEN from the environment, else the GitHub CLI's sign-in (gh auth token),
+  // asked once per server start; without either, anonymous requests. Only called for GitHub
+  // avatars (setting avatarSource = github).
+  githubToken() {
+    this.githubTokenRequest ??= Promise.resolve(
+      process.env.GITHUB_TOKEN || process.env.GH_TOKEN || void 0
+    ).then((fromEnv) => fromEnv ?? ghCliToken());
+    return this.githubTokenRequest;
   }
   // fs.watch on the git directories plus a periodic working tree check.
   watchRepository(target, callbacks) {

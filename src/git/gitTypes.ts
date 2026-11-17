@@ -39,6 +39,8 @@ export type CommitSummary = {
   shortHash: string;
   parents: string[];
   authorName: string;
+  // For avatars (setting avatarSource); missing in old fixtures.
+  authorEmail?: string;
   authorDate: string;
   subject: string;
   refs: Ref[];
