@@ -487,7 +487,11 @@ var GitService = class {
       }
     }
     const output = await this.execGit(args, repoRoot);
-    return parseGitLog(output);
+    const commits = parseGitLog(output);
+    if (showRemoteBranches) {
+      return commits;
+    }
+    return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => ref.type !== "remote") }));
   }
   async getCommitDetails(hash) {
     const repoRoot = await this.getRepoRoot();
@@ -2648,8 +2652,9 @@ var GraphController = class {
     return rows;
   }
   // Local branches get their upstream and ahead/behind counts (shown as a badge on the chip).
+  // Not while remotes are hidden: "↑2 ↓1" and "gone" are comparisons with the remote branch.
   withTracking(commit) {
-    if (this.tracking.size === 0 || !commit.refs.some((ref) => ref.type === "local" && this.tracking.has(ref.name))) {
+    if (!this.showRemoteBranches || this.tracking.size === 0 || !commit.refs.some((ref) => ref.type === "local" && this.tracking.has(ref.name))) {
       return commit;
     }
     const refs = commit.refs.map((ref) => {

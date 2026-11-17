@@ -221,7 +221,13 @@ export class GitService {
     }
 
     const output = await this.execGit(args, repoRoot);
-    return parseGitLog(output);
+    const commits = parseGitLog(output);
+    if (showRemoteBranches) {
+      return commits;
+    }
+    // Remotes hidden: the commits of local branches still carry their remote-tracking refs as
+    // decorations (origin/x, origin/HEAD); drop them so no remote shows up anywhere.
+    return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => ref.type !== 'remote') }));
   }
 
   async getCommitDetails(hash: string): Promise<CommitDetails | undefined> {

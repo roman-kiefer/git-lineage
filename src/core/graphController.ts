@@ -1854,8 +1854,9 @@ export class GraphController {
   }
 
   // Local branches get their upstream and ahead/behind counts (shown as a badge on the chip).
+  // Not while remotes are hidden: "↑2 ↓1" and "gone" are comparisons with the remote branch.
   private withTracking(commit: CommitSummary): CommitSummary {
-    if (this.tracking.size === 0 || !commit.refs.some((ref) => ref.type === 'local' && this.tracking.has(ref.name))) {
+    if (!this.showRemoteBranches || this.tracking.size === 0 || !commit.refs.some((ref) => ref.type === 'local' && this.tracking.has(ref.name))) {
       return commit;
     }
     const refs = commit.refs.map((ref) => {

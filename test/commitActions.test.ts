@@ -521,6 +521,12 @@ describe('Commit actions of the context menu', () => {
       expect(refOf('track-x')).toMatchObject({ upstream: 'origin/track-x', ahead: 2, behind: 1 });
       expect(refOf('track-gone')).toMatchObject({ upstream: 'origin/track-gone', upstreamGone: true });
       expect(refOf('main')?.upstream).toBeUndefined();
+      // Remotes hidden: no comparison with the remote branch either (no "↑2 ↓1", no "gone").
+      await controller.receive({ type: 'updateFilters', payload: { selectedBranch: '__all__', showRemoteBranches: false } } as never);
+      expect(refOf('track-x')).toMatchObject({ name: 'track-x' });
+      expect(refOf('track-x')?.upstream).toBeUndefined();
+      expect(refOf('track-gone')?.upstreamGone).toBeUndefined();
+      await controller.receive({ type: 'updateFilters', payload: { selectedBranch: '__all__', showRemoteBranches: true } } as never);
     } finally {
       git('branch', '-D', 'track-x', 'track-gone');
       git('remote', 'remove', 'origin');

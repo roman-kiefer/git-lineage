@@ -44,4 +44,13 @@ describe('Branch selector', () => {
     const commits = await service().getLogChunk(50, undefined, { selectedBranch: 'feature' });
     expect(commits.map((commit) => commit.subject)).toEqual(['f1', 'base']);
   });
+
+  it('shows remote refs on the commits only while remotes are shown', async () => {
+    const refsOfF1 = async (showRemoteBranches: boolean) =>
+      (await service().getLogChunk(50, undefined, { showRemoteBranches }))
+        .find((commit) => commit.subject === 'f1')
+        ?.refs.map((ref) => `${ref.type}:${ref.name}`);
+    expect(await refsOfF1(true)).toEqual(expect.arrayContaining(['local:feature', 'remote:origin/feature']));
+    expect(await refsOfF1(false)).toEqual(['local:feature']);
+  });
 });
