@@ -390,7 +390,9 @@ ${details.body}` : "Not committed yet.";
     deps.renderFilters(
       payload?.branches ?? [],
       payload?.selectedBranch ?? "__all__",
-      payload?.showRemoteBranches ?? true
+      payload?.showRemoteBranches ?? true,
+      payload?.showForkRemotes ?? true,
+      payload?.forkRemotes ?? []
     );
   };
   var handleInitMessage = (payload, deps) => {
@@ -2357,6 +2359,8 @@ ${tip}` : tip;
     const loadMoreButton = document.getElementById("load-more");
     const branchSelect = document.getElementById("branch-select");
     const remoteToggle = document.getElementById("remote-toggle");
+    const forkToggle = document.getElementById("fork-toggle");
+    const forkToggleLabel = document.getElementById("fork-toggle-label");
     const repoSelect = document.getElementById("repo-select");
     const worktreeSelect = document.getElementById("worktree-select");
     const minRefreshVisibleMs = options.minRefreshVisibleMs ?? 320;
@@ -2452,7 +2456,7 @@ ${tip}` : tip;
         triggerAutoLoadIfNeeded();
       });
     };
-    const renderFilters = (branches, selectedBranch, showRemoteBranches) => {
+    const renderFilters = (branches, selectedBranch, showRemoteBranches, showForkRemotes, forkRemotes) => {
       if (!branchSelect || !remoteToggle) {
         return;
       }
@@ -2468,13 +2472,20 @@ ${tip}` : tip;
         branchSelect.value = "__all__";
       }
       remoteToggle.checked = showRemoteBranches;
+      if (forkToggle && forkToggleLabel) {
+        forkToggleLabel.hidden = forkRemotes.length === 0;
+        forkToggle.checked = showForkRemotes;
+        forkToggle.disabled = !showRemoteBranches;
+        forkToggleLabel.classList.toggle("filter-check--disabled", !showRemoteBranches);
+        forkToggleLabel.title = `Show branches of ${forkRemotes.length === 1 ? "the fork" : "the forks"} ${forkRemotes.join(", ")}`;
+      }
     };
     const sendFilterUpdate = () => {
       if (!branchSelect || !remoteToggle) {
         return;
       }
       setRefreshing(true);
-      options.onUpdateFilters(branchSelect.value, remoteToggle.checked);
+      options.onUpdateFilters(branchSelect.value, remoteToggle.checked, forkToggle?.checked ?? true);
     };
     refreshButton?.addEventListener("click", () => {
       setRefreshing(true);
@@ -2484,6 +2495,9 @@ ${tip}` : tip;
       sendFilterUpdate();
     });
     remoteToggle?.addEventListener("change", () => {
+      sendFilterUpdate();
+    });
+    forkToggle?.addEventListener("change", () => {
       sendFilterUpdate();
     });
     const updateContextLabel = () => {
@@ -3806,13 +3820,18 @@ ${tip}` : tip;
             <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="8.5" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 10.5h-.5A1 1 0 0 1 2 9.5V3a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1v.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
           </button>
         </div>
-        <!-- What is shown: branch filter and remote branches. -->
+        <!-- What is shown: branch filter, remote branches and those of forks. -->
         <div class="toolbar__group filters">
           <label class="filter-label" for="branch-select">Branches</label>
           <select class="filter-select filter-select--branch" id="branch-select"></select>
           <label class="filter-check" title="Show remote branches">
             <input type="checkbox" id="remote-toggle" checked />
             Remotes
+          </label>
+          <!-- Only when the repository has remotes besides the main one (forks). -->
+          <label class="filter-check" id="fork-toggle-label" hidden>
+            <input type="checkbox" id="fork-toggle" checked />
+            Forks
           </label>
         </div>
         <!-- Find and refresh: the search box gives way first when space is short. -->
@@ -3902,12 +3921,13 @@ ${tip}` : tip;
       refresh: () => {
         send({ type: "refresh" });
       },
-      updateFilters: (selectedBranch, showRemoteBranches) => {
+      updateFilters: (selectedBranch, showRemoteBranches, showForkRemotes) => {
         send({
           type: "updateFilters",
           payload: {
             selectedBranch,
-            showRemoteBranches
+            showRemoteBranches,
+            showForkRemotes
           }
         });
       },
@@ -4505,8 +4525,8 @@ ${tip}` : tip;
     onRefresh: () => {
       actions.refresh();
     },
-    onUpdateFilters: (selectedBranch, showRemoteBranches) => {
-      actions.updateFilters(selectedBranch, showRemoteBranches);
+    onUpdateFilters: (selectedBranch, showRemoteBranches, showForkRemotes) => {
+      actions.updateFilters(selectedBranch, showRemoteBranches, showForkRemotes);
     },
     onLoadMore: (cursor) => {
       actions.loadMore(cursor);

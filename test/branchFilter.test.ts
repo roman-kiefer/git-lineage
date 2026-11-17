@@ -53,4 +53,40 @@ describe('Branch selector', () => {
     expect(await refsOfF1(true)).toEqual(expect.arrayContaining(['local:feature', 'remote:origin/feature']));
     expect(await refsOfF1(false)).toEqual(['local:feature']);
   });
+
+  it('forks: remotes besides origin, their branches left out on request', async () => {
+    git('remote', 'add', 'origin', 'https://example.invalid/main.git');
+    git('remote', 'add', 'colleague', 'https://example.invalid/fork.git');
+    git('update-ref', 'refs/remotes/colleague/feature', 'feature');
+    git('update-ref', 'refs/remotes/colleague/only-fork', 'main~1');
+    try {
+      expect(await service().forkRemotes()).toEqual(['colleague']);
+      expect((await service().getBranches(true, ['colleague'])).map((branch) => branch.name))
+        .toEqual(['feature', 'main', 'origin/feature']);
+      const commits = await service().getLogChunk(50, undefined, { showRemoteBranches: true, hiddenRemotes: ['colleague'] });
+      const refNames = commits.flatMap((commit) => commit.refs.map((ref) => ref.name));
+      expect(refNames).toContain('origin/feature');
+      expect(refNames.filter((name) => name.startsWith('colleague/'))).toEqual([]);
+    } finally {
+      git('update-ref', '-d', 'refs/remotes/colleague/feature');
+      git('update-ref', '-d', 'refs/remotes/colleague/only-fork');
+      git('remote', 'remove', 'colleague');
+      git('remote', 'remove', 'origin');
+    }
+  });
+
+  it('forks: without origin the main remote is the one most local branches track', async () => {
+    git('remote', 'add', 'upstream', 'https://example.invalid/main.git');
+    git('remote', 'add', 'aaa-fork', 'https://example.invalid/fork.git');
+    git('config', 'branch.main.remote', 'upstream');
+    git('config', 'branch.main.merge', 'refs/heads/main');
+    try {
+      expect(await service().forkRemotes()).toEqual(['aaa-fork']);
+    } finally {
+      git('config', '--unset', 'branch.main.remote');
+      git('config', '--unset', 'branch.main.merge');
+      git('remote', 'remove', 'aaa-fork');
+      git('remote', 'remove', 'upstream');
+    }
+  });
 });

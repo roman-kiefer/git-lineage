@@ -18,6 +18,8 @@ export type WebviewIncomingPayload = {
   branches?: BranchFilterOption[];
   selectedBranch?: string;
   showRemoteBranches?: boolean;
+  showForkRemotes?: boolean;
+  forkRemotes?: string[];
   selectedSortMode?: 'date';
   dateFormat?: string;
   dateLocale?: string;
@@ -45,6 +47,8 @@ type WebviewMessageDeps = {
     branches: BranchFilterOption[],
     selectedBranch: string,
     showRemoteBranches: boolean,
+    showForkRemotes: boolean,
+    forkRemotes: string[],
   ) => void;
   applyPagingState: (nextCursor: string | undefined, hasMore: boolean) => void;
   applyCommitList: (payload: WebviewIncomingPayload, append: boolean) => void;
@@ -70,6 +74,8 @@ const applyFiltersFromPayload = (
     payload?.branches ?? [],
     payload?.selectedBranch ?? '__all__',
     payload?.showRemoteBranches ?? true,
+    payload?.showForkRemotes ?? true,
+    payload?.forkRemotes ?? [],
   );
 };
 

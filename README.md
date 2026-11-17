@@ -62,6 +62,7 @@ A mouse click selects a commit and opens its details.
 |---|---|---|
 | `gitLineage.pageSize` | 120 | Commits loaded per page |
 | `gitLineage.showRemoteBranches` | true | Show remote branches when the view opens |
+| `gitLineage.showForkRemotes` | true | Show the branches of forks when the view opens: remotes besides `origin` (without `origin`: besides the remote most local branches track). The "Forks" checkbox only appears when there are such remotes |
 | `gitLineage.autoRefresh` | true | Refresh when HEAD, refs or the index change, or when a file in the repository is saved |
 | `gitLineage.confirmDetachedCheckout` | true | Ask before checking out a commit or tag (detached HEAD) |
 | `gitLineage.gitTimeoutSeconds` | 30 | Timeout for a single git command |

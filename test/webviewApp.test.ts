@@ -87,6 +87,25 @@ describe('Webview app', () => {
     expect(refresh.getAttribute('aria-label')).toBe('Refresh');
   });
 
+  it('Forks checkbox: only with fork remotes, greyed out without remotes, sent with the filters', () => {
+    const label = document.getElementById('fork-toggle-label')!;
+    const toggle = document.getElementById('fork-toggle') as HTMLInputElement;
+    expect(label.hidden).toBe(true);
+    receive('commits', { commits, append: false, hasMore: false, showRemoteBranches: true, showForkRemotes: true, forkRemotes: ['YgreckNovaTime'] });
+    expect(label.hidden).toBe(false);
+    expect(label.title).toContain('YgreckNovaTime');
+    expect(toggle.disabled).toBe(false);
+    sent.length = 0;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+    expect(sent).toMatchObject([{ type: 'updateFilters', payload: { showRemoteBranches: true, showForkRemotes: false } }]);
+    receive('commits', { commits, append: false, hasMore: false, showRemoteBranches: false, showForkRemotes: false, forkRemotes: ['YgreckNovaTime'] });
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.checked).toBe(false);
+    receive('commits', { commits, append: false, hasMore: false, showRemoteBranches: true, forkRemotes: [] });
+    expect(label.hidden).toBe(true);
+  });
+
   it('Load more only while there are more commits (no "No more commits")', () => {
     const footer = document.querySelector<HTMLElement>('.list-footer')!;
     expect(footer.hidden).toBe(true);

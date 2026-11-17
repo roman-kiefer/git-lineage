@@ -119,6 +119,15 @@ body {
   white-space: nowrap;
 }
 
+.filter-check[hidden] {
+  display: none;
+}
+
+/* "Forks" while remotes are hidden: nothing to choose. */
+.filter-check--disabled {
+  opacity: 0.5;
+}
+
 .spacer {
   flex: 1;
 }

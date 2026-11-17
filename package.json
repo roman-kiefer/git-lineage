@@ -71,6 +71,11 @@
                     "default": true,
                     "description": "Show remote branches when the view opens."
                 },
+                "gitLineage.showForkRemotes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show the branches of forks (remotes besides origin) when the view opens."
+                },
                 "gitLineage.autoRefresh": {
                     "type": "boolean",
                     "default": true,

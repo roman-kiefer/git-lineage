@@ -8,7 +8,7 @@ type BranchFilterOption = {
 
 type ToolbarControllerOptions = {
   onRefresh: () => void;
-  onUpdateFilters: (selectedBranch: string, showRemoteBranches: boolean) => void;
+  onUpdateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean) => void;
   onLoadMore: (cursor: string | undefined) => void;
   onSelectRepo: (repoRoot: string) => void;
   onSelectWorktree: (path: string) => void;
@@ -21,6 +21,8 @@ export type ToolbarController = {
     branches: BranchFilterOption[],
     selectedBranch: string,
     showRemoteBranches: boolean,
+    showForkRemotes: boolean,
+    forkRemotes: string[],
   ) => void;
   setPagingState: (nextCursor: string | undefined, hasMore: boolean) => void;
   // Fill the repo selector; it is only shown when there is more than one repository.
@@ -36,6 +38,8 @@ export const createToolbarController = (options: ToolbarControllerOptions): Tool
   const loadMoreButton = document.getElementById('load-more') as HTMLButtonElement | null;
   const branchSelect = document.getElementById('branch-select') as HTMLSelectElement | null;
   const remoteToggle = document.getElementById('remote-toggle') as HTMLInputElement | null;
+  const forkToggle = document.getElementById('fork-toggle') as HTMLInputElement | null;
+  const forkToggleLabel = document.getElementById('fork-toggle-label');
   const repoSelect = document.getElementById('repo-select') as HTMLSelectElement | null;
   const worktreeSelect = document.getElementById('worktree-select') as HTMLSelectElement | null;
 
@@ -151,6 +155,8 @@ export const createToolbarController = (options: ToolbarControllerOptions): Tool
     branches: BranchFilterOption[],
     selectedBranch: string,
     showRemoteBranches: boolean,
+    showForkRemotes: boolean,
+    forkRemotes: string[],
   ): void => {
     if (!branchSelect || !remoteToggle) {
       return;
@@ -170,6 +176,15 @@ export const createToolbarController = (options: ToolbarControllerOptions): Tool
     }
 
     remoteToggle.checked = showRemoteBranches;
+    // Forks: remotes besides the main one, named in the tooltip; without remotes there is nothing
+    // to choose (greyed out).
+    if (forkToggle && forkToggleLabel) {
+      forkToggleLabel.hidden = forkRemotes.length === 0;
+      forkToggle.checked = showForkRemotes;
+      forkToggle.disabled = !showRemoteBranches;
+      forkToggleLabel.classList.toggle('filter-check--disabled', !showRemoteBranches);
+      forkToggleLabel.title = `Show branches of ${forkRemotes.length === 1 ? 'the fork' : 'the forks'} ${forkRemotes.join(', ')}`;
+    }
   };
 
   const sendFilterUpdate = (): void => {
@@ -177,7 +192,7 @@ export const createToolbarController = (options: ToolbarControllerOptions): Tool
       return;
     }
     setRefreshing(true);
-    options.onUpdateFilters(branchSelect.value, remoteToggle.checked);
+    options.onUpdateFilters(branchSelect.value, remoteToggle.checked, forkToggle?.checked ?? true);
   };
 
   refreshButton?.addEventListener('click', () => {
@@ -190,6 +205,10 @@ export const createToolbarController = (options: ToolbarControllerOptions): Tool
   });
 
   remoteToggle?.addEventListener('change', () => {
+    sendFilterUpdate();
+  });
+
+  forkToggle?.addEventListener('change', () => {
     sendFilterUpdate();
   });
 

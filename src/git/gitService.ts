@@ -22,6 +22,8 @@ export { GitError } from './gitErrors';
 type LogOptions = {
   selectedBranch?: string;
   showRemoteBranches?: boolean;
+  // Remotes whose branches are left out (forks), while the other remotes are shown.
+  hiddenRemotes?: string[];
   skip?: number;
   sortMode?: 'default' | 'topo' | 'date' | 'authorDate';
 };
@@ -142,7 +144,7 @@ export class GitService {
     return { gitDir, commonDir };
   }
 
-  async getBranches(showRemoteBranches: boolean): Promise<BranchOption[]> {
+  async getBranches(showRemoteBranches: boolean, hiddenRemotes: string[] = []): Promise<BranchOption[]> {
     const repoRoot = await this.getRepoRoot();
     if (!repoRoot) {
       return [];
@@ -167,6 +169,7 @@ export class GitService {
       })
       .filter((branch) => !branch.name.endsWith('/HEAD'))
       .filter((branch) => showRemoteBranches || branch.type === 'local')
+      .filter((branch) => branch.type === 'local' || !isOnRemote(branch.name, hiddenRemotes))
       .sort((a, b) => a.name.localeCompare(b.name));
 
     return branches;
@@ -180,6 +183,7 @@ export class GitService {
 
     const selectedBranch = options?.selectedBranch ?? '__all__';
     const showRemoteBranches = options?.showRemoteBranches ?? true;
+    const hiddenRemotes = showRemoteBranches ? options?.hiddenRemotes ?? [] : [];
     const skip = Math.max(options?.skip ?? 0, 0);
     const sortMode = options?.sortMode ?? 'date';
 
@@ -212,7 +216,7 @@ export class GitService {
     } else if (showRemoteBranches) {
       // Stashes are shown as chips on the commit they were made on (getStashes), not as the
       // two internal commits git keeps for each of them.
-      args.push('--exclude=refs/stash', '--all');
+      args.push('--exclude=refs/stash', ...hiddenRemotes.map((remote) => `--exclude=refs/remotes/${remote}/*`), '--all');
     } else {
       const localBranches = (await this.getBranches(false)).map((branch) => branch.name);
       if (localBranches.length > 0) {
@@ -222,12 +226,14 @@ export class GitService {
 
     const output = await this.execGit(args, repoRoot);
     const commits = parseGitLog(output);
-    if (showRemoteBranches) {
+    if (showRemoteBranches && hiddenRemotes.length === 0) {
       return commits;
     }
-    // Remotes hidden: the commits of local branches still carry their remote-tracking refs as
-    // decorations (origin/x, origin/HEAD); drop them so no remote shows up anywhere.
-    return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => ref.type !== 'remote') }));
+    // Remotes (or forks) hidden: the commits still carry their remote-tracking refs as
+    // decorations (origin/x, origin/HEAD); drop them so the hidden remotes show up nowhere.
+    const hidden = (ref: { name: string; type: string }) =>
+      ref.type === 'remote' && (!showRemoteBranches || isOnRemote(ref.name, hiddenRemotes));
+    return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => !hidden(ref)) }));
   }
 
   async getCommitDetails(hash: string): Promise<CommitDetails | undefined> {
@@ -354,6 +360,24 @@ export class GitService {
   async createTag(name: string, hash: string, message: string | undefined): Promise<void> {
     const args = message ? ['tag', '-a', name, '-m', message, hash] : ['tag', name, hash];
     await this.execGit(args, await this.requireRepoRoot());
+  }
+
+  // Remotes other than the main one: forks such as a colleague's copy of the repository. Git has
+  // no notion of a fork; the main remote is "origin", else the one most local branches track.
+  async forkRemotes(): Promise<string[]> {
+    const repoRoot = await this.requireRepoRoot();
+    const lines = (text: string) => text.split('\n').map((line) => line.trim()).filter(Boolean);
+    const remotes = lines(await this.execGit(['remote'], repoRoot));
+    if (remotes.length < 2) {
+      return [];
+    }
+    let main = remotes.includes('origin') ? 'origin' : undefined;
+    if (!main) {
+      const tracked = lines(await this.execGit(['for-each-ref', '--format', '%(upstream:remotename)', 'refs/heads'], repoRoot));
+      const count = (remote: string) => tracked.filter((name) => name === remote).length;
+      main = [...remotes].sort((a, b) => count(b) - count(a))[0];
+    }
+    return remotes.filter((remote) => remote !== main).sort((a, b) => a.localeCompare(b));
   }
 
   // Upstream of every local branch with ahead/behind counts (local data, as of the last fetch).
@@ -809,3 +833,7 @@ export class GitService {
     });
   }
 }
+
+// Remote branch "fork/feature" belongs to one of these remotes.
+export const isOnRemote = (branch: string, remotes: string[]): boolean =>
+  remotes.some((remote) => branch.startsWith(`${remote}/`));

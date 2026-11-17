@@ -428,7 +428,7 @@ var GitService = class {
     const commonDir = path3.isAbsolute(commonDirRaw) ? commonDirRaw : path3.resolve(repoRoot, commonDirRaw);
     return { gitDir, commonDir };
   }
-  async getBranches(showRemoteBranches) {
+  async getBranches(showRemoteBranches, hiddenRemotes = []) {
     const repoRoot = await this.getRepoRoot();
     if (!repoRoot) {
       return [];
@@ -441,7 +441,7 @@ var GitService = class {
     const branches = output.split("\n").map((line) => line.trim()).filter((line) => line.length > 0).map((line) => line.split("")).filter((parts) => parts.length >= 2).map(([name, fullName]) => {
       const type = fullName.startsWith("refs/remotes/") ? "remote" : "local";
       return { name, type };
-    }).filter((branch) => !branch.name.endsWith("/HEAD")).filter((branch) => showRemoteBranches || branch.type === "local").sort((a, b) => a.name.localeCompare(b.name));
+    }).filter((branch) => !branch.name.endsWith("/HEAD")).filter((branch) => showRemoteBranches || branch.type === "local").filter((branch) => branch.type === "local" || !isOnRemote(branch.name, hiddenRemotes)).sort((a, b) => a.name.localeCompare(b.name));
     return branches;
   }
   async getLogChunk(limit = 50, beforeHash, options) {
@@ -451,6 +451,7 @@ var GitService = class {
     }
     const selectedBranch = options?.selectedBranch ?? "__all__";
     const showRemoteBranches = options?.showRemoteBranches ?? true;
+    const hiddenRemotes = showRemoteBranches ? options?.hiddenRemotes ?? [] : [];
     const skip = Math.max(options?.skip ?? 0, 0);
     const sortMode = options?.sortMode ?? "date";
     const format = "%x1d%H%x1f%h%x1f%P%x1f%an%x1f%ad%x1f%s%x1f%D%x1e";
@@ -479,7 +480,7 @@ var GitService = class {
     if (selectedBranch && selectedBranch !== "__all__") {
       args.push(selectedBranch);
     } else if (showRemoteBranches) {
-      args.push("--exclude=refs/stash", "--all");
+      args.push("--exclude=refs/stash", ...hiddenRemotes.map((remote) => `--exclude=refs/remotes/${remote}/*`), "--all");
     } else {
       const localBranches = (await this.getBranches(false)).map((branch) => branch.name);
       if (localBranches.length > 0) {
@@ -488,10 +489,11 @@ var GitService = class {
     }
     const output = await this.execGit(args, repoRoot);
     const commits = parseGitLog(output);
-    if (showRemoteBranches) {
+    if (showRemoteBranches && hiddenRemotes.length === 0) {
       return commits;
     }
-    return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => ref.type !== "remote") }));
+    const hidden = (ref) => ref.type === "remote" && (!showRemoteBranches || isOnRemote(ref.name, hiddenRemotes));
+    return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => !hidden(ref)) }));
   }
   async getCommitDetails(hash) {
     const repoRoot = await this.getRepoRoot();
@@ -594,6 +596,23 @@ var GitService = class {
   async createTag(name, hash, message) {
     const args = message ? ["tag", "-a", name, "-m", message, hash] : ["tag", name, hash];
     await this.execGit(args, await this.requireRepoRoot());
+  }
+  // Remotes other than the main one: forks such as a colleague's copy of the repository. Git has
+  // no notion of a fork; the main remote is "origin", else the one most local branches track.
+  async forkRemotes() {
+    const repoRoot = await this.requireRepoRoot();
+    const lines = (text) => text.split("\n").map((line) => line.trim()).filter(Boolean);
+    const remotes = lines(await this.execGit(["remote"], repoRoot));
+    if (remotes.length < 2) {
+      return [];
+    }
+    let main = remotes.includes("origin") ? "origin" : void 0;
+    if (!main) {
+      const tracked = lines(await this.execGit(["for-each-ref", "--format", "%(upstream:remotename)", "refs/heads"], repoRoot));
+      const count = (remote) => tracked.filter((name) => name === remote).length;
+      main = [...remotes].sort((a, b) => count(b) - count(a))[0];
+    }
+    return remotes.filter((remote) => remote !== main).sort((a, b) => a.localeCompare(b));
   }
   // Upstream of every local branch with ahead/behind counts (local data, as of the last fetch).
   async branchTracking() {
@@ -990,6 +1009,7 @@ var GitService = class {
     });
   }
 };
+var isOnRemote = (branch, remotes) => remotes.some((remote) => branch.startsWith(`${remote}/`));
 
 // src/git/refNames.ts
 var localNameForRemote = (remoteRef) => {
@@ -1085,6 +1105,7 @@ var GraphController = class {
     this.gitService = gitService;
     this.loadedCommits = [];
     this.selectedBranch = "__all__";
+    this.forkRemotes = [];
     this.selectedSortMode = "date";
     this.branchOptions = [{ value: "__all__", label: "Show All", type: "all" }];
     // Repositories offered in the repo selector and the currently shown one.
@@ -1105,6 +1126,7 @@ var GraphController = class {
     this.openForms = /* @__PURE__ */ new Map();
     this.nextFormId = 1;
     this.showRemoteBranches = host.config("showRemoteBranches", true);
+    this.showForkRemotes = host.config("showForkRemotes", true);
   }
   // Entry point for every webview message; failures end up in the webview's status line.
   receive(message) {
@@ -1143,6 +1165,7 @@ var GraphController = class {
         return;
       case "updateFilters":
         this.showRemoteBranches = message.payload.showRemoteBranches;
+        this.showForkRemotes = message.payload.showForkRemotes ?? this.showForkRemotes;
         this.selectedBranch = message.payload.selectedBranch || "__all__";
         this.selectedSortMode = "date";
         this.loadedCommits = [];
@@ -2378,6 +2401,9 @@ var GraphController = class {
       branches: this.branchOptions,
       selectedBranch: this.selectedBranch,
       showRemoteBranches: this.showRemoteBranches,
+      showForkRemotes: this.showForkRemotes,
+      // Fork remotes of the repository; the "Forks" checkbox only appears when there are any.
+      forkRemotes: this.forkRemotes,
       selectedSortMode: this.selectedSortMode,
       // Date column format (short | iso | local | relative), applied in the webview.
       dateFormat: this.host.config("dateFormat", "short"),
@@ -2405,10 +2431,12 @@ var GraphController = class {
     this.repositories = await this.gitService.getRepositories();
     this.repositoryRoot = await this.gitService.getRepositoryRoot();
     this.repoRoot = await this.gitService.getRepoRoot();
+    this.forkRemotes = this.repoRoot ? await this.gitService.forkRemotes().catch(() => []) : [];
     await this.loadBranchOptions(this.repoRoot);
     const commits = this.repoRoot ? await this.gitService.getLogChunk(limit, void 0, {
       selectedBranch: this.selectedBranch,
       showRemoteBranches: this.showRemoteBranches,
+      hiddenRemotes: this.hiddenRemotes(),
       sortMode: this.selectedSortMode,
       skip: 0
     }) : [];
@@ -2526,6 +2554,7 @@ var GraphController = class {
     const newCommits = repoRoot ? await this.gitService.getLogChunk(limit, cursor, {
       selectedBranch: this.selectedBranch,
       showRemoteBranches: this.showRemoteBranches,
+      hiddenRemotes: this.hiddenRemotes(),
       sortMode: this.selectedSortMode,
       skip: this.loadedCommits.length
     }) : [];
@@ -2622,7 +2651,7 @@ var GraphController = class {
       this.selectedBranch = "__all__";
       return;
     }
-    const branches = await this.gitService.getBranches(this.showRemoteBranches);
+    const branches = await this.gitService.getBranches(this.showRemoteBranches, this.hiddenRemotes());
     this.branchOptions = [
       { value: "__all__", label: "Show All", type: "all" },
       ...branches.map((branch) => ({
@@ -2651,14 +2680,20 @@ var GraphController = class {
     });
     return rows;
   }
+  // Remotes whose branches are left out: the forks while "Forks" is off.
+  hiddenRemotes() {
+    return this.showForkRemotes ? [] : this.forkRemotes;
+  }
   // Local branches get their upstream and ahead/behind counts (shown as a badge on the chip).
-  // Not while remotes are hidden: "↑2 ↓1" and "gone" are comparisons with the remote branch.
+  // Not while remotes (or that fork) are hidden: "↑2 ↓1" and "gone" compare with the remote branch.
   withTracking(commit) {
     if (!this.showRemoteBranches || this.tracking.size === 0 || !commit.refs.some((ref) => ref.type === "local" && this.tracking.has(ref.name))) {
       return commit;
     }
+    const hidden = this.hiddenRemotes();
     const refs = commit.refs.map((ref) => {
-      const track = ref.type === "local" ? this.tracking.get(ref.name) : void 0;
+      const found = ref.type === "local" ? this.tracking.get(ref.name) : void 0;
+      const track = found && !isOnRemote(found.upstream, hidden) ? found : void 0;
       return track ? { ...ref, upstream: track.upstream, ahead: track.ahead, behind: track.behind, upstreamGone: track.gone || void 0 } : ref;
     });
     return { ...commit, refs };
@@ -2858,6 +2893,7 @@ var path5 = __toESM(require("path"));
 var DEFAULT_SETTINGS = {
   pageSize: 120,
   showRemoteBranches: true,
+  showForkRemotes: true,
   autoRefresh: true,
   gitTimeoutSeconds: 30,
   dateFormat: "short"

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { GitError, GitService, type BranchTracking, type StashEntry, type TagDetails } from '../git/gitService';
+import { GitError, GitService, isOnRemote, type BranchTracking, type StashEntry, type TagDetails } from '../git/gitService';
 import { withLineCounts } from '../git/gitParser';
 import type { CommitFileChange, CommitSummary, Ref } from '../git/gitTypes';
 import { branchNameProblem, localNameForRemote } from '../git/refNames';
@@ -97,6 +97,9 @@ export class GraphController {
   private loadedCommits: CommitSummary[] = [];
   private selectedBranch = '__all__';
   private showRemoteBranches: boolean;
+  // Branches of fork remotes (all remotes but the main one) are shown; see forkRemotes.
+  private showForkRemotes: boolean;
+  private forkRemotes: string[] = [];
   private selectedSortMode: 'date' = 'date';
   private branchOptions: BranchOption[] = [{ value: '__all__', label: 'Show All', type: 'all' }];
   // Repositories offered in the repo selector and the currently shown one.
@@ -142,6 +145,7 @@ export class GraphController {
   ) {
     // Initial remote-branch filter comes from the settings.
     this.showRemoteBranches = host.config<boolean>('showRemoteBranches', true);
+    this.showForkRemotes = host.config<boolean>('showForkRemotes', true);
   }
 
   // Entry point for every webview message; failures end up in the webview's status line.
@@ -186,6 +190,7 @@ export class GraphController {
         return;
       case 'updateFilters':
         this.showRemoteBranches = message.payload.showRemoteBranches;
+        this.showForkRemotes = message.payload.showForkRemotes ?? this.showForkRemotes;
         this.selectedBranch = message.payload.selectedBranch || '__all__';
         this.selectedSortMode = 'date';
         this.loadedCommits = [];
@@ -1530,6 +1535,9 @@ export class GraphController {
       branches: this.branchOptions,
       selectedBranch: this.selectedBranch,
       showRemoteBranches: this.showRemoteBranches,
+      showForkRemotes: this.showForkRemotes,
+      // Fork remotes of the repository; the "Forks" checkbox only appears when there are any.
+      forkRemotes: this.forkRemotes,
       selectedSortMode: this.selectedSortMode,
       // Date column format (short | iso | local | relative), applied in the webview.
       dateFormat: this.host.config<string>('dateFormat', 'short'),
@@ -1564,11 +1572,13 @@ export class GraphController {
     this.repositories = await this.gitService.getRepositories();
     this.repositoryRoot = await this.gitService.getRepositoryRoot();
     this.repoRoot = await this.gitService.getRepoRoot();
+    this.forkRemotes = this.repoRoot ? await this.gitService.forkRemotes().catch(() => []) : [];
     await this.loadBranchOptions(this.repoRoot);
     const commits = this.repoRoot
       ? await this.gitService.getLogChunk(limit, undefined, {
           selectedBranch: this.selectedBranch,
           showRemoteBranches: this.showRemoteBranches,
+          hiddenRemotes: this.hiddenRemotes(),
           sortMode: this.selectedSortMode,
           skip: 0,
         })
@@ -1704,6 +1714,7 @@ export class GraphController {
       ? await this.gitService.getLogChunk(limit, cursor, {
           selectedBranch: this.selectedBranch,
           showRemoteBranches: this.showRemoteBranches,
+          hiddenRemotes: this.hiddenRemotes(),
           sortMode: this.selectedSortMode,
           skip: this.loadedCommits.length,
         })
@@ -1819,7 +1830,7 @@ export class GraphController {
       return;
     }
 
-    const branches = await this.gitService.getBranches(this.showRemoteBranches);
+    const branches = await this.gitService.getBranches(this.showRemoteBranches, this.hiddenRemotes());
     this.branchOptions = [
       { value: '__all__', label: 'Show All', type: 'all' },
       ...branches.map((branch) => ({
@@ -1853,14 +1864,21 @@ export class GraphController {
     return rows;
   }
 
+  // Remotes whose branches are left out: the forks while "Forks" is off.
+  private hiddenRemotes(): string[] {
+    return this.showForkRemotes ? [] : this.forkRemotes;
+  }
+
   // Local branches get their upstream and ahead/behind counts (shown as a badge on the chip).
-  // Not while remotes are hidden: "↑2 ↓1" and "gone" are comparisons with the remote branch.
+  // Not while remotes (or that fork) are hidden: "↑2 ↓1" and "gone" compare with the remote branch.
   private withTracking(commit: CommitSummary): CommitSummary {
     if (!this.showRemoteBranches || this.tracking.size === 0 || !commit.refs.some((ref) => ref.type === 'local' && this.tracking.has(ref.name))) {
       return commit;
     }
+    const hidden = this.hiddenRemotes();
     const refs = commit.refs.map((ref) => {
-      const track = ref.type === 'local' ? this.tracking.get(ref.name) : undefined;
+      const found = ref.type === 'local' ? this.tracking.get(ref.name) : undefined;
+      const track = found && !isOnRemote(found.upstream, hidden) ? found : undefined;
       return track
         ? { ...ref, upstream: track.upstream, ahead: track.ahead, behind: track.behind, upstreamGone: track.gone || undefined }
         : ref;

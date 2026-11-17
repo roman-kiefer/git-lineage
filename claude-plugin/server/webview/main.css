@@ -98,6 +98,12 @@ body {
   color: var(--vscode-descriptionForeground);
   white-space: nowrap;
 }
+.filter-check[hidden] {
+  display: none;
+}
+.filter-check--disabled {
+  opacity: 0.5;
+}
 .spacer {
   flex: 1;
 }

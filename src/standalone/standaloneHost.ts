@@ -12,6 +12,7 @@ import type { ConfirmOptions, Disposable, GraphHost, PromptOptions, WatchCallbac
 export const DEFAULT_SETTINGS: Record<string, unknown> = {
   pageSize: 120,
   showRemoteBranches: true,
+  showForkRemotes: true,
   autoRefresh: true,
   gitTimeoutSeconds: 30,
   dateFormat: 'short',
