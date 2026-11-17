@@ -75,6 +75,27 @@ describe('Branch selector', () => {
     }
   });
 
+  it('other refs (e.g. refs/codex/snapshots/...): left out unless asked for', async () => {
+    const snapshot = git('commit-tree', '-m', 'snapshot', '-p', 'main', 'main^{tree}');
+    git('update-ref', 'refs/codex/snapshots/abc', snapshot);
+    try {
+      expect(await service().countOtherRefs()).toBe(1);
+      const subjects = async (showOtherRefs: boolean) =>
+        (await service().getLogChunk(50, undefined, { showOtherRefs })).map((commit) => commit.subject);
+      expect(await subjects(false)).not.toContain('snapshot');
+      const withOthers = await service().getLogChunk(50, undefined, { showOtherRefs: true });
+      const row = withOthers.find((commit) => commit.subject === 'snapshot');
+      expect(row?.refs).toEqual([{ name: 'codex/snapshots/abc', type: 'other' }]);
+      // HEAD and the branches keep their decorations.
+      expect(withOthers.flatMap((commit) => commit.refs.map((ref) => ref.name))).toEqual(expect.arrayContaining(['HEAD', 'main', 'feature']));
+      // Remotes hidden: other refs still on request.
+      expect((await service().getLogChunk(50, undefined, { showRemoteBranches: false, showOtherRefs: true })).map((commit) => commit.subject)).toContain('snapshot');
+    } finally {
+      git('update-ref', '-d', 'refs/codex/snapshots/abc');
+    }
+    expect(await service().countOtherRefs()).toBe(0);
+  });
+
   it('forks: without origin the main remote is the one most local branches track', async () => {
     git('remote', 'add', 'upstream', 'https://example.invalid/main.git');
     git('remote', 'add', 'aaa-fork', 'https://example.invalid/fork.git');

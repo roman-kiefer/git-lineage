@@ -100,6 +100,9 @@ export class GraphController {
   // Branches of fork remotes (all remotes but the main one) are shown; see forkRemotes.
   private showForkRemotes: boolean;
   private forkRemotes: string[] = [];
+  // Refs outside branches, remotes and tags (e.g. refs/codex/snapshots/...): followed on request.
+  private showOtherRefs: boolean;
+  private otherRefCount = 0;
   private selectedSortMode: 'date' = 'date';
   private branchOptions: BranchOption[] = [{ value: '__all__', label: 'Show All', type: 'all' }];
   // Repositories offered in the repo selector and the currently shown one.
@@ -146,6 +149,7 @@ export class GraphController {
     // Initial remote-branch filter comes from the settings.
     this.showRemoteBranches = host.config<boolean>('showRemoteBranches', true);
     this.showForkRemotes = host.config<boolean>('showForkRemotes', true);
+    this.showOtherRefs = host.config<boolean>('showOtherRefs', false);
   }
 
   // Entry point for every webview message; failures end up in the webview's status line.
@@ -191,6 +195,7 @@ export class GraphController {
       case 'updateFilters':
         this.showRemoteBranches = message.payload.showRemoteBranches;
         this.showForkRemotes = message.payload.showForkRemotes ?? this.showForkRemotes;
+        this.showOtherRefs = message.payload.showOtherRefs ?? this.showOtherRefs;
         this.selectedBranch = message.payload.selectedBranch || '__all__';
         this.selectedSortMode = 'date';
         this.loadedCommits = [];
@@ -1538,6 +1543,9 @@ export class GraphController {
       showForkRemotes: this.showForkRemotes,
       // Fork remotes of the repository; the "Forks" checkbox only appears when there are any.
       forkRemotes: this.forkRemotes,
+      showOtherRefs: this.showOtherRefs,
+      // Number of other refs; the "Other refs" checkbox only appears when there are any.
+      otherRefCount: this.otherRefCount,
       selectedSortMode: this.selectedSortMode,
       // Date column format (short | iso | local | relative), applied in the webview.
       dateFormat: this.host.config<string>('dateFormat', 'short'),
@@ -1573,12 +1581,14 @@ export class GraphController {
     this.repositoryRoot = await this.gitService.getRepositoryRoot();
     this.repoRoot = await this.gitService.getRepoRoot();
     this.forkRemotes = this.repoRoot ? await this.gitService.forkRemotes().catch(() => []) : [];
+    this.otherRefCount = this.repoRoot ? await this.gitService.countOtherRefs().catch(() => 0) : 0;
     await this.loadBranchOptions(this.repoRoot);
     const commits = this.repoRoot
       ? await this.gitService.getLogChunk(limit, undefined, {
           selectedBranch: this.selectedBranch,
           showRemoteBranches: this.showRemoteBranches,
           hiddenRemotes: this.hiddenRemotes(),
+          showOtherRefs: this.showOtherRefs,
           sortMode: this.selectedSortMode,
           skip: 0,
         })
@@ -1715,6 +1725,7 @@ export class GraphController {
           selectedBranch: this.selectedBranch,
           showRemoteBranches: this.showRemoteBranches,
           hiddenRemotes: this.hiddenRemotes(),
+          showOtherRefs: this.showOtherRefs,
           sortMode: this.selectedSortMode,
           skip: this.loadedCommits.length,
         })

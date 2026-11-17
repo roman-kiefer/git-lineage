@@ -16,7 +16,7 @@ export const renderAppShell = (root: HTMLElement | null): void => {
             <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="8.5" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 10.5h-.5A1 1 0 0 1 2 9.5V3a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1v.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
           </button>
         </div>
-        <!-- What is shown: branch filter, remote branches and those of forks. -->
+        <!-- What is shown: branch filter, remote branches, those of forks, other refs. -->
         <div class="toolbar__group filters">
           <label class="filter-label" for="branch-select">Branches</label>
           <select class="filter-select filter-select--branch" id="branch-select"></select>
@@ -28,6 +28,11 @@ export const renderAppShell = (root: HTMLElement | null): void => {
           <label class="filter-check" id="fork-toggle-label" hidden>
             <input type="checkbox" id="fork-toggle" checked />
             Forks
+          </label>
+          <!-- Only when the repository has refs outside branches, remotes and tags. -->
+          <label class="filter-check" id="other-refs-toggle-label" hidden>
+            <input type="checkbox" id="other-refs-toggle" />
+            Other refs
           </label>
         </div>
         <!-- Find and refresh: the search box gives way first when space is short. -->

@@ -477,23 +477,43 @@ var GitService = class {
     if (beforeHash && skip === 0) {
       args.splice(1, 0, `${beforeHash}^`);
     }
+    const showOtherRefs = options?.showOtherRefs ?? false;
+    if (showOtherRefs) {
+      args.push("--decorate-refs=refs/", "--decorate-refs=HEAD");
+    }
+    const otherRefs = ["--exclude=refs/stash", "--exclude=refs/heads/*", "--exclude=refs/remotes/*", "--exclude=refs/tags/*", "--all"];
     if (selectedBranch && selectedBranch !== "__all__") {
       args.push(selectedBranch);
     } else if (showRemoteBranches) {
-      args.push("--exclude=refs/stash", ...hiddenRemotes.map((remote) => `--exclude=refs/remotes/${remote}/*`), "--all");
+      args.push("--branches", ...hiddenRemotes.map((remote) => `--exclude=refs/remotes/${remote}/*`), "--remotes", "--tags");
+      if (await this.getHeadHash().catch(() => void 0)) {
+        args.push("HEAD");
+      }
+      if (showOtherRefs) {
+        args.push(...otherRefs);
+      }
     } else {
       const localBranches = (await this.getBranches(false)).map((branch) => branch.name);
       if (localBranches.length > 0) {
         args.push(...localBranches);
       }
+      if (showOtherRefs) {
+        args.push(...otherRefs);
+      }
     }
     const output = await this.execGit(args, repoRoot);
     const commits = parseGitLog(output);
-    if (showRemoteBranches && hiddenRemotes.length === 0) {
+    if (showRemoteBranches && hiddenRemotes.length === 0 && showOtherRefs) {
       return commits;
     }
-    const hidden = (ref) => ref.type === "remote" && (!showRemoteBranches || isOnRemote(ref.name, hiddenRemotes));
+    const hidden = (ref) => ref.type === "remote" && (!showRemoteBranches || isOnRemote(ref.name, hiddenRemotes)) || ref.type === "other" && !showOtherRefs;
     return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => !hidden(ref)) }));
+  }
+  // Number of refs outside branches, remote branches, tags and the stash, e.g. the snapshots
+  // tools like Codex keep under refs/codex/. The "Other refs" checkbox only appears when there are any.
+  async countOtherRefs() {
+    const output = await this.execGit(["for-each-ref", "--format=%(refname)"], await this.requireRepoRoot());
+    return output.split("\n").map((line) => line.trim()).filter((name) => name && !/^refs\/(heads|remotes|tags)\//.test(name) && name !== "refs/stash").length;
   }
   async getCommitDetails(hash) {
     const repoRoot = await this.getRepoRoot();
@@ -1106,6 +1126,7 @@ var GraphController = class {
     this.loadedCommits = [];
     this.selectedBranch = "__all__";
     this.forkRemotes = [];
+    this.otherRefCount = 0;
     this.selectedSortMode = "date";
     this.branchOptions = [{ value: "__all__", label: "Show All", type: "all" }];
     // Repositories offered in the repo selector and the currently shown one.
@@ -1127,6 +1148,7 @@ var GraphController = class {
     this.nextFormId = 1;
     this.showRemoteBranches = host.config("showRemoteBranches", true);
     this.showForkRemotes = host.config("showForkRemotes", true);
+    this.showOtherRefs = host.config("showOtherRefs", false);
   }
   // Entry point for every webview message; failures end up in the webview's status line.
   receive(message) {
@@ -1166,6 +1188,7 @@ var GraphController = class {
       case "updateFilters":
         this.showRemoteBranches = message.payload.showRemoteBranches;
         this.showForkRemotes = message.payload.showForkRemotes ?? this.showForkRemotes;
+        this.showOtherRefs = message.payload.showOtherRefs ?? this.showOtherRefs;
         this.selectedBranch = message.payload.selectedBranch || "__all__";
         this.selectedSortMode = "date";
         this.loadedCommits = [];
@@ -2404,6 +2427,9 @@ var GraphController = class {
       showForkRemotes: this.showForkRemotes,
       // Fork remotes of the repository; the "Forks" checkbox only appears when there are any.
       forkRemotes: this.forkRemotes,
+      showOtherRefs: this.showOtherRefs,
+      // Number of other refs; the "Other refs" checkbox only appears when there are any.
+      otherRefCount: this.otherRefCount,
       selectedSortMode: this.selectedSortMode,
       // Date column format (short | iso | local | relative), applied in the webview.
       dateFormat: this.host.config("dateFormat", "short"),
@@ -2432,11 +2458,13 @@ var GraphController = class {
     this.repositoryRoot = await this.gitService.getRepositoryRoot();
     this.repoRoot = await this.gitService.getRepoRoot();
     this.forkRemotes = this.repoRoot ? await this.gitService.forkRemotes().catch(() => []) : [];
+    this.otherRefCount = this.repoRoot ? await this.gitService.countOtherRefs().catch(() => 0) : 0;
     await this.loadBranchOptions(this.repoRoot);
     const commits = this.repoRoot ? await this.gitService.getLogChunk(limit, void 0, {
       selectedBranch: this.selectedBranch,
       showRemoteBranches: this.showRemoteBranches,
       hiddenRemotes: this.hiddenRemotes(),
+      showOtherRefs: this.showOtherRefs,
       sortMode: this.selectedSortMode,
       skip: 0
     }) : [];
@@ -2555,6 +2583,7 @@ var GraphController = class {
       selectedBranch: this.selectedBranch,
       showRemoteBranches: this.showRemoteBranches,
       hiddenRemotes: this.hiddenRemotes(),
+      showOtherRefs: this.showOtherRefs,
       sortMode: this.selectedSortMode,
       skip: this.loadedCommits.length
     }) : [];
@@ -2894,6 +2923,7 @@ var DEFAULT_SETTINGS = {
   pageSize: 120,
   showRemoteBranches: true,
   showForkRemotes: true,
+  showOtherRefs: false,
   autoRefresh: true,
   gitTimeoutSeconds: 30,
   dateFormat: "short"

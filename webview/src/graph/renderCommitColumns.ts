@@ -227,7 +227,12 @@ const createSingleRefChip = (ref: CommitRef): HTMLSpanElement => {
     chip.classList.add('ref-chip--current');
   }
   chip.appendChild(createRefIcon(ref.type));
-  appendChipSegment(chip, ref.name, 'ref-chip__segment ref-chip__segment--label');
+  // Other refs often end in a full hash (refs/codex/snapshots/<40 hex>): short form, full name on hover.
+  const label = ref.type === 'other' ? ref.name.replace(/\b([0-9a-f]{7})[0-9a-f]{33}$/, '$1') : ref.name;
+  if (label !== ref.name) {
+    chip.title = `refs/${ref.name}`;
+  }
+  appendChipSegment(chip, label, 'ref-chip__segment ref-chip__segment--label');
   markTracking(chip, ref);
   markWorktree(chip, ref);
   // Stash: its message on hover, its commit for the menu actions.

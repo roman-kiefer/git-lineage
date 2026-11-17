@@ -25,6 +25,7 @@ type OutgoingWebviewMessage =
         selectedBranch: string;
         showRemoteBranches: boolean;
         showForkRemotes: boolean;
+        showOtherRefs: boolean;
       };
     }
   | {
@@ -95,7 +96,7 @@ type VsCodePostMessageApi = {
 export type WebviewActions = {
   ready: () => void;
   refresh: () => void;
-  updateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean) => void;
+  updateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean, showOtherRefs: boolean) => void;
   loadMore: (cursor?: string) => void;
   selectCommit: (hash: string) => void;
   openFile: (hash: string, path: string) => void;
@@ -147,13 +148,14 @@ export const createWebviewActions = (vscode: VsCodePostMessageApi): WebviewActio
     refresh: () => {
       send({ type: 'refresh' });
     },
-    updateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean) => {
+    updateFilters: (selectedBranch: string, showRemoteBranches: boolean, showForkRemotes: boolean, showOtherRefs: boolean) => {
       send({
         type: 'updateFilters',
         payload: {
           selectedBranch,
           showRemoteBranches,
           showForkRemotes,
+          showOtherRefs,
         },
       });
     },

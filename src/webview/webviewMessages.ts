@@ -12,6 +12,7 @@ export type WebviewUpdateFiltersMessage = {
     selectedBranch: string;
     showRemoteBranches: boolean;
     showForkRemotes?: boolean;
+    showOtherRefs?: boolean;
   };
 };
 
@@ -212,6 +213,8 @@ export type WebviewInitMessage = {
     showRemoteBranches: boolean;
     showForkRemotes: boolean;
     forkRemotes: string[];
+    showOtherRefs: boolean;
+    otherRefCount: number;
     selectedSortMode: 'date';
     dateFormat: string;
     // OS regional format (e.g. de-DE), used for local/relative dates.
@@ -234,6 +237,8 @@ export type WebviewCommitsMessage = {
     showRemoteBranches: boolean;
     showForkRemotes: boolean;
     forkRemotes: string[];
+    showOtherRefs: boolean;
+    otherRefCount: number;
     selectedSortMode: 'date';
     dateFormat: string;
     // OS regional format (e.g. de-DE), used for local/relative dates.

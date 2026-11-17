@@ -106,6 +106,23 @@ describe('Webview app', () => {
     expect(label.hidden).toBe(true);
   });
 
+  it('Other refs checkbox: only when there are such refs, off by default, sent with the filters', () => {
+    const label = document.getElementById('other-refs-toggle-label')!;
+    const toggle = document.getElementById('other-refs-toggle') as HTMLInputElement;
+    expect(label.hidden).toBe(true);
+    expect(toggle.checked).toBe(false);
+    receive('commits', { commits, append: false, hasMore: false, showRemoteBranches: true, otherRefCount: 91 });
+    expect(label.hidden).toBe(false);
+    expect(label.title).toContain('91 refs');
+    expect(toggle.checked).toBe(false);
+    sent.length = 0;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    expect(sent).toMatchObject([{ type: 'updateFilters', payload: { showOtherRefs: true } }]);
+    receive('commits', { commits, append: false, hasMore: false, showRemoteBranches: true, otherRefCount: 0 });
+    expect(label.hidden).toBe(true);
+  });
+
   it('Load more only while there are more commits (no "No more commits")', () => {
     const footer = document.querySelector<HTMLElement>('.list-footer')!;
     expect(footer.hidden).toBe(true);

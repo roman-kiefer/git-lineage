@@ -392,7 +392,9 @@ ${details.body}` : "Not committed yet.";
       payload?.selectedBranch ?? "__all__",
       payload?.showRemoteBranches ?? true,
       payload?.showForkRemotes ?? true,
-      payload?.forkRemotes ?? []
+      payload?.forkRemotes ?? [],
+      payload?.showOtherRefs ?? false,
+      payload?.otherRefCount ?? 0
     );
   };
   var handleInitMessage = (payload, deps) => {
@@ -859,7 +861,11 @@ ${tip}` : tip;
       chip2.classList.add("ref-chip--current");
     }
     chip2.appendChild(createRefIcon(ref.type));
-    appendChipSegment(chip2, ref.name, "ref-chip__segment ref-chip__segment--label");
+    const label = ref.type === "other" ? ref.name.replace(/\b([0-9a-f]{7})[0-9a-f]{33}$/, "$1") : ref.name;
+    if (label !== ref.name) {
+      chip2.title = `refs/${ref.name}`;
+    }
+    appendChipSegment(chip2, label, "ref-chip__segment ref-chip__segment--label");
     markTracking(chip2, ref);
     markWorktree(chip2, ref);
     if (ref.type === "stash") {
@@ -2361,6 +2367,8 @@ ${tip}` : tip;
     const remoteToggle = document.getElementById("remote-toggle");
     const forkToggle = document.getElementById("fork-toggle");
     const forkToggleLabel = document.getElementById("fork-toggle-label");
+    const otherRefsToggle = document.getElementById("other-refs-toggle");
+    const otherRefsToggleLabel = document.getElementById("other-refs-toggle-label");
     const repoSelect = document.getElementById("repo-select");
     const worktreeSelect = document.getElementById("worktree-select");
     const minRefreshVisibleMs = options.minRefreshVisibleMs ?? 320;
@@ -2456,7 +2464,7 @@ ${tip}` : tip;
         triggerAutoLoadIfNeeded();
       });
     };
-    const renderFilters = (branches, selectedBranch, showRemoteBranches, showForkRemotes, forkRemotes) => {
+    const renderFilters = (branches, selectedBranch, showRemoteBranches, showForkRemotes, forkRemotes, showOtherRefs, otherRefCount) => {
       if (!branchSelect || !remoteToggle) {
         return;
       }
@@ -2479,13 +2487,18 @@ ${tip}` : tip;
         forkToggleLabel.classList.toggle("filter-check--disabled", !showRemoteBranches);
         forkToggleLabel.title = `Show branches of ${forkRemotes.length === 1 ? "the fork" : "the forks"} ${forkRemotes.join(", ")}`;
       }
+      if (otherRefsToggle && otherRefsToggleLabel) {
+        otherRefsToggleLabel.hidden = otherRefCount === 0;
+        otherRefsToggle.checked = showOtherRefs;
+        otherRefsToggleLabel.title = `Show the commits of ${otherRefCount} ${otherRefCount === 1 ? "ref" : "refs"} outside branches, remotes and tags (e.g. snapshots of tools such as Codex)`;
+      }
     };
     const sendFilterUpdate = () => {
       if (!branchSelect || !remoteToggle) {
         return;
       }
       setRefreshing(true);
-      options.onUpdateFilters(branchSelect.value, remoteToggle.checked, forkToggle?.checked ?? true);
+      options.onUpdateFilters(branchSelect.value, remoteToggle.checked, forkToggle?.checked ?? true, otherRefsToggle?.checked ?? false);
     };
     refreshButton?.addEventListener("click", () => {
       setRefreshing(true);
@@ -2498,6 +2511,9 @@ ${tip}` : tip;
       sendFilterUpdate();
     });
     forkToggle?.addEventListener("change", () => {
+      sendFilterUpdate();
+    });
+    otherRefsToggle?.addEventListener("change", () => {
       sendFilterUpdate();
     });
     const updateContextLabel = () => {
@@ -3820,7 +3836,7 @@ ${tip}` : tip;
             <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="8.5" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 10.5h-.5A1 1 0 0 1 2 9.5V3a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1v.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
           </button>
         </div>
-        <!-- What is shown: branch filter, remote branches and those of forks. -->
+        <!-- What is shown: branch filter, remote branches, those of forks, other refs. -->
         <div class="toolbar__group filters">
           <label class="filter-label" for="branch-select">Branches</label>
           <select class="filter-select filter-select--branch" id="branch-select"></select>
@@ -3832,6 +3848,11 @@ ${tip}` : tip;
           <label class="filter-check" id="fork-toggle-label" hidden>
             <input type="checkbox" id="fork-toggle" checked />
             Forks
+          </label>
+          <!-- Only when the repository has refs outside branches, remotes and tags. -->
+          <label class="filter-check" id="other-refs-toggle-label" hidden>
+            <input type="checkbox" id="other-refs-toggle" />
+            Other refs
           </label>
         </div>
         <!-- Find and refresh: the search box gives way first when space is short. -->
@@ -3921,13 +3942,14 @@ ${tip}` : tip;
       refresh: () => {
         send({ type: "refresh" });
       },
-      updateFilters: (selectedBranch, showRemoteBranches, showForkRemotes) => {
+      updateFilters: (selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs) => {
         send({
           type: "updateFilters",
           payload: {
             selectedBranch,
             showRemoteBranches,
-            showForkRemotes
+            showForkRemotes,
+            showOtherRefs
           }
         });
       },
@@ -4525,8 +4547,8 @@ ${tip}` : tip;
     onRefresh: () => {
       actions.refresh();
     },
-    onUpdateFilters: (selectedBranch, showRemoteBranches, showForkRemotes) => {
-      actions.updateFilters(selectedBranch, showRemoteBranches, showForkRemotes);
+    onUpdateFilters: (selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs) => {
+      actions.updateFilters(selectedBranch, showRemoteBranches, showForkRemotes, showOtherRefs);
     },
     onLoadMore: (cursor) => {
       actions.loadMore(cursor);

@@ -3,6 +3,16 @@
 All notable changes to Git Lineage are listed here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Other refs** checkbox: shows the commits of refs outside branches, remote branches and tags, e.g. the snapshots tools such as Codex keep under `refs/codex/`, with a chip for each (long hashes shortened, full name on hover). It only appears when the repository has such refs. Initial value: setting `gitLineage.showOtherRefs` (default: hidden).
+
+### Changed
+
+- The graph follows only branches, remote branches, tags and HEAD. Before, internal refs of other tools (e.g. `refs/codex/snapshots/…`) added lanes without any branch name.
+
 ## [0.2.0] - 2026-11-17
 
 ### Added

@@ -76,6 +76,11 @@
                     "default": true,
                     "description": "Show the branches of forks (remotes besides origin) when the view opens."
                 },
+                "gitLineage.showOtherRefs": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Show the commits of refs outside branches, remotes and tags (e.g. snapshots of tools such as Codex under refs/codex/) when the view opens."
+                },
                 "gitLineage.autoRefresh": {
                     "type": "boolean",
                     "default": true,

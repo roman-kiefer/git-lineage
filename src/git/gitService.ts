@@ -24,6 +24,8 @@ type LogOptions = {
   showRemoteBranches?: boolean;
   // Remotes whose branches are left out (forks), while the other remotes are shown.
   hiddenRemotes?: string[];
+  // Also follow refs outside branches, remotes and tags (default: no).
+  showOtherRefs?: boolean;
   skip?: number;
   sortMode?: 'default' | 'topo' | 'date' | 'authorDate';
 };
@@ -211,29 +213,59 @@ export class GitService {
       args.splice(1, 0, `${beforeHash}^`);
     }
 
+    // Other refs (refs/codex/snapshots/..., refs/original/..., refs/pull/...): only on request.
+    // They need their own decoration, git leaves them out of %D by default.
+    const showOtherRefs = options?.showOtherRefs ?? false;
+    if (showOtherRefs) {
+      args.push('--decorate-refs=refs/', '--decorate-refs=HEAD');
+    }
+    // Stashes are shown as chips on the commit they were made on (getStashes), not as the
+    // two internal commits git keeps for each of them.
+    const otherRefs = ['--exclude=refs/stash', '--exclude=refs/heads/*', '--exclude=refs/remotes/*', '--exclude=refs/tags/*', '--all'];
     if (selectedBranch && selectedBranch !== '__all__') {
       args.push(selectedBranch);
     } else if (showRemoteBranches) {
-      // Stashes are shown as chips on the commit they were made on (getStashes), not as the
-      // two internal commits git keeps for each of them.
-      args.push('--exclude=refs/stash', ...hiddenRemotes.map((remote) => `--exclude=refs/remotes/${remote}/*`), '--all');
+      // --exclude applies to the next --remotes only, so the hidden forks go right before it.
+      args.push('--branches', ...hiddenRemotes.map((remote) => `--exclude=refs/remotes/${remote}/*`), '--remotes', '--tags');
+      // HEAD for a detached checkout; not on an unborn branch (git log would fail on it).
+      if (await this.getHeadHash().catch(() => undefined)) {
+        args.push('HEAD');
+      }
+      if (showOtherRefs) {
+        args.push(...otherRefs);
+      }
     } else {
       const localBranches = (await this.getBranches(false)).map((branch) => branch.name);
       if (localBranches.length > 0) {
         args.push(...localBranches);
       }
+      if (showOtherRefs) {
+        args.push(...otherRefs);
+      }
     }
 
     const output = await this.execGit(args, repoRoot);
     const commits = parseGitLog(output);
-    if (showRemoteBranches && hiddenRemotes.length === 0) {
+    if (showRemoteBranches && hiddenRemotes.length === 0 && showOtherRefs) {
       return commits;
     }
     // Remotes (or forks) hidden: the commits still carry their remote-tracking refs as
     // decorations (origin/x, origin/HEAD); drop them so the hidden remotes show up nowhere.
+    // Same for other refs (log.initialDecorationSet=all would show them).
     const hidden = (ref: { name: string; type: string }) =>
-      ref.type === 'remote' && (!showRemoteBranches || isOnRemote(ref.name, hiddenRemotes));
+      (ref.type === 'remote' && (!showRemoteBranches || isOnRemote(ref.name, hiddenRemotes))) ||
+      (ref.type === 'other' && !showOtherRefs);
     return commits.map((commit) => ({ ...commit, refs: commit.refs.filter((ref) => !hidden(ref)) }));
+  }
+
+  // Number of refs outside branches, remote branches, tags and the stash, e.g. the snapshots
+  // tools like Codex keep under refs/codex/. The "Other refs" checkbox only appears when there are any.
+  async countOtherRefs(): Promise<number> {
+    const output = await this.execGit(['for-each-ref', '--format=%(refname)'], await this.requireRepoRoot());
+    return output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((name) => name && !/^refs\/(heads|remotes|tags)\//.test(name) && name !== 'refs/stash').length;
   }
 
   async getCommitDetails(hash: string): Promise<CommitDetails | undefined> {
