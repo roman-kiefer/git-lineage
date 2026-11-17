@@ -3,6 +3,16 @@
 All notable changes to Git Lineage are listed here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-17
+
+### Added
+
+- **Forks** checkbox next to **Remotes**: hides the branches of forks, i.e. remotes besides `origin` (without `origin`: besides the remote most local branches track), in the graph and in the branch list. It only appears when the repository has such remotes; the tooltip names them. Initial value: setting `gitLineage.showForkRemotes` (default: shown).
+
+### Fixed
+
+- With **Remotes** unchecked, remote branches still showed up on the commits of local branches (`origin/…`, `origin/HEAD`, the `origin` part of a branch chip) together with the ahead/behind and `gone` badges. Now no remote is shown anywhere.
+
 ## [0.1.2] - 2026-11-10
 
 ### Added
