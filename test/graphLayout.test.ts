@@ -408,6 +408,24 @@ describe('Uncommitted Changes (pseudo row with parent HEAD)', () => {
     ).toBe(true);
   });
 
+  it('does not move left into a column that a lane starting further down uses', () => {
+    // F ends in row 2 (branch into B), so column 1 is free in row 3 only: S starts there in
+    // row 4. The pseudo row's line down to HEAD (H) must not shift into column 1 on the way.
+    const history = [
+      commit('U', ['H'], 2, true),
+      commit('A', ['B'], 0),
+      commit('F', ['B'], 1),
+      commit('B', ['C'], 0),
+      commit('S', ['C'], 1),
+      commit('C', ['D'], 0),
+      commit('H', ['D'], 2),
+      commit('D', [], 0),
+    ];
+    const result = layoutOf(history);
+    expect(findCollisions(result)).toEqual([]);
+    realColumnsUnchanged(history, result);
+  });
+
   it.each(fixtureNames)('%s: the pseudo row above HEAD (top commit) does not change the columns', (name) => {
     const real = loadCommitViews(name);
     const history = [commit('U', [real[0].hash], real[0].lane, true), ...real];

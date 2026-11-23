@@ -100,6 +100,8 @@ export const computeGraphLayout = (
   // Debug: per row and lane, how many left-shift steps were possible in that row.
   const rowShiftBudgetByLaneId = new Map<number, Map<number, number>>();
   let laneCountByRules = 0;
+  // Lanes that may only shift left into a column free down to this row (see isPlacedLast).
+  const shiftFreeUntilRowByLaneId = new Map<number, number>();
 
   const recordRowOccupancy = (rowIndex: number, laneId: number, visualLane: number): void => {
     const rowMap = rowLaneOccupancy.get(rowIndex) ?? new Map<number, Set<number>>();
@@ -200,6 +202,12 @@ export const computeGraphLayout = (
       return 'none';
     }
     if (isVisualLaneOccupiedByOtherLane(laneId, leftVisualLane, rowIndex)) {
+      return 'none';
+    }
+    // Lane placed after all others (pseudo row): the column must stay free further down too,
+    // the lanes below are already there and do not avoid it any more.
+    const freeUntilRow = shiftFreeUntilRowByLaneId.get(laneId);
+    if (freeUntilRow !== undefined && !isColumnFreeForLane(laneId, leftVisualLane, rowIndex, freeUntilRow)) {
       return 'none';
     }
     return freeReason;
@@ -605,6 +613,8 @@ export const computeGraphLayout = (
       const headIndex = headHash ? indexByHash.get(headHash) : undefined;
       const lastRow = headIndex !== undefined && headIndex > startIndex ? headIndex - 1 : rows.length - 1;
       initialVisualLane = findFreeMergeColumn(laneId, initialVisualLane, startIndex, lastRow);
+      // Same for moving left on the way down (into a column freed by a branch above).
+      shiftFreeUntilRowByLaneId.set(laneId, lastRow);
     }
     currentVisualLaneByLaneId.set(laneId, initialVisualLane);
 

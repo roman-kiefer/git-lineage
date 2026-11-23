@@ -1108,6 +1108,7 @@ ${tip}` : tip;
     const rowLaneOccupancy = /* @__PURE__ */ new Map();
     const rowShiftBudgetByLaneId = /* @__PURE__ */ new Map();
     let laneCountByRules = 0;
+    const shiftFreeUntilRowByLaneId = /* @__PURE__ */ new Map();
     const recordRowOccupancy = (rowIndex, laneId, visualLane) => {
       const rowMap = rowLaneOccupancy.get(rowIndex) ?? /* @__PURE__ */ new Map();
       const lanesAtVisual = rowMap.get(visualLane) ?? /* @__PURE__ */ new Set();
@@ -1176,6 +1177,10 @@ ${tip}` : tip;
         return "none";
       }
       if (isVisualLaneOccupiedByOtherLane(laneId, leftVisualLane, rowIndex)) {
+        return "none";
+      }
+      const freeUntilRow = shiftFreeUntilRowByLaneId.get(laneId);
+      if (freeUntilRow !== void 0 && !isColumnFreeForLane(laneId, leftVisualLane, rowIndex, freeUntilRow)) {
         return "none";
       }
       return freeReason;
@@ -1454,6 +1459,7 @@ ${tip}` : tip;
         const headIndex = headHash ? indexByHash.get(headHash) : void 0;
         const lastRow = headIndex !== void 0 && headIndex > startIndex ? headIndex - 1 : rows.length - 1;
         initialVisualLane = findFreeMergeColumn(laneId, initialVisualLane, startIndex, lastRow);
+        shiftFreeUntilRowByLaneId.set(laneId, lastRow);
       }
       currentVisualLaneByLaneId.set(laneId, initialVisualLane);
       let currentIndex = startIndex;
